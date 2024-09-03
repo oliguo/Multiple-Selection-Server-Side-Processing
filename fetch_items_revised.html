@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Dropdown with Filtering</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+
+    .dropdown-container {
+      position: relative;
+      width: 600px;
+    }
+
+    .search-container {
+      display: flex;
+      border: 2px solid #ccc;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    #search-input {
+      flex-grow: 1;
+      padding: 10px;
+      border: none;
+      outline: none;
+    }
+
+    .button-group {
+      display: flex;
+    }
+
+    .button-group button {
+      padding: 10px;
+      border: none;
+      background-color: #f0f0f0;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .button-group button:hover {
+      background-color: #e0e0e0;
+    }
+
+    .dropdown-options {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #fff;
+      display: none;
+      z-index: 1;
+    }
+
+    .dropdown-options::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .dropdown-options::-webkit-scrollbar-track {
+      background-color: #f1f1f1;
+    }
+
+    .dropdown-options::-webkit-scrollbar-thumb {
+      background-color: #888;
+      border-radius: 10px;
+    }
+
+    .dropdown-option {
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .dropdown-option:hover {
+      background-color: #f2f2f2;
+    }
+
+    .selected {
+      background-color: #ddd;
+    }
+
+    /* Pagination styles */
+    .pagination {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .pagination li {
+      margin: 0 5px;
+      display: none;
+    }
+
+    .pagination a {
+      display: inline-block;
+      padding: 5px 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      text-decoration: none;
+      color: #333;
+    }
+
+    .pagination .active a {
+      background-color: #ddd;
+      color: #fff;
+    }
+
+    #preview-dialog {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: white;
+      border: 1px solid #ccc;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      width: 300px;
+      height: 400px;
+      flex-direction: column;
+    }
+
+    #preview-dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background-color: #f0f0f0;
+      border-bottom: 1px solid #ccc;
+    }
+
+    #preview-dialog-close {
+      font-size: 24px;
+      cursor: pointer;
+      padding: 5px 10px;
+    }
+
+    #preview-items-container {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    #preview-items-list {
+      margin: 0;
+      padding: 0 0 0 20px;
+    }
+
+    #preview-items-list li {
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="dropdown-container">
+    <div class="search-container">
+      <input type="text" id="search-input" placeholder="Search...">
+      <div class="button-group">
+        <button id="check-all">Check All</button>
+        <button id="uncheck-all">Uncheck All</button>
+        <button id="reset">Reset</button>
+        <button id="selected-items">Selected items</button>
+      </div>
+    </div>
+    <div class="dropdown-options">
+      <!-- Options will be populated here -->
+    </div>
+  </div>
+  <div id="pagination"></div>
+
+  <div id="preview-dialog">
+    <div id="preview-dialog-header">
+      <h3>Selected Items</h3>
+      <span id="preview-dialog-close">&times;</span>
+    </div>
+    <div id="preview-items-container">
+      <ul id="preview-items-list"></ul>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    // Function to fetch data from the server (replace with your actual data fetching logic)
+    async function fetchData(page, keyword, startIndex = 0, limit = 20) {
+      try {
+        const response = await fetch(`fetch_items.php?page=${page}&keyword=${keyword}&startIndex=${startIndex}&limit=${limit}`);
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        return { options: [], totalPages: 0, currentPage: 0 };
+      }
+    }
+
+    // Dropdown Filter Class
+    class DropdownFilter {
+      constructor(dropdownOptionsSelector, searchInputSelector, selectedItemsButtonSelector, paginationContainerSelector, checkAllButtonSelector, uncheckAllButtonSelector, resetButtonSelector) {
+        this.dropdownOptions = document.querySelector(dropdownOptionsSelector);
+        this.searchInput = document.querySelector(searchInputSelector);
+        this.selectedItemsButton = document.querySelector(selectedItemsButtonSelector);
+        this.paginationContainer = document.querySelector(paginationContainerSelector);
+        this.checkAllButton = document.querySelector(checkAllButtonSelector);
+        this.uncheckAllButton = document.querySelector(uncheckAllButtonSelector);
+        this.resetButton = document.querySelector(resetButtonSelector);
+        this.previewDialog = document.querySelector("#preview-dialog");
+        this.previewItemsList = document.querySelector("#preview-items-list");
+        this.previewDialogClose = document.querySelector("#preview-dialog-close");
+        this.selectedItems = [];
+        this.items = [];
+        this.currentPage = 1;
+        this.lastFetchStartIndex = 0;
+        this.currentKeyword = "";
+
+        this.searchInput.addEventListener("input", this.updateDropdownOptionsByKeyword.bind(this));
+        this.dropdownOptions.addEventListener("scroll", this.loadMoreOptions.bind(this));
+        this.checkAllButton.addEventListener("click", this.checkAllOptions.bind(this));
+        this.uncheckAllButton.addEventListener("click", this.uncheckAllOptions.bind(this));
+        this.resetButton.addEventListener("click", this.resetAll.bind(this));
+        this.selectedItemsButton.addEventListener("click", this.showPreviewDialog.bind(this));
+        this.previewDialogClose.addEventListener("click", this.closePreviewDialog.bind(this));
+
+        this.loadPage(this.currentPage);
+        this.dropdownOptions.style.display = "none";
+
+        this.searchInput.addEventListener("focus", this.showDropdownOptions.bind(this));
+
+        document.addEventListener("click", (event) => {
+          if (!this.searchInput.contains(event.target) && !this.dropdownOptions.contains(event.target)) {
+            this.hideDropdownOptions();
+          }
+        });
+
+        this.updateSelectedItemsButtonText();
+      }
+
+      // Function to select an option
+      selectOption(option) {
+        option.classList.toggle("selected");
+        const itemId = parseInt(option.dataset.itemId);
+        const item = { id: itemId, name: option.textContent };
+
+        const index = this.selectedItems.findIndex(selectedItem => selectedItem.id === itemId);
+        if (index !== -1) {
+          this.selectedItems.splice(index, 1);
+        } else {
+          this.selectedItems.push(item);
+        }
+
+        this.updateOptionSelection();
+        this.updateSelectedItemsButtonText();
+        this.logSelectedItemIds();
+        this.updatePreviewDialog();
+      }
+
+      // Function to populate dropdown options
+      populateDropdownOptions(options) {
+        options.forEach((item, index) => {
+          const option = document.createElement("div");
+          option.classList.add("dropdown-option");
+          option.textContent = item.name;
+          option.dataset.itemId = item.id;
+          option.addEventListener("click", () => {
+            this.selectOption(option);
+          });
+
+          if (index + this.lastFetchStartIndex < this.dropdownOptions.children.length) {
+            this.dropdownOptions.insertBefore(option, this.dropdownOptions.children[index + this.lastFetchStartIndex]);
+          } else {
+            this.dropdownOptions.appendChild(option);
+          }
+
+          if (!this.items.find(i => i.id === item.id)) {
+            this.items.push(item);
+          }
+        });
+
+        this.updateOptionSelection();
+      }
+
+      // Function to update the option selection styles
+      updateOptionSelection() {
+        const options = this.dropdownOptions.querySelectorAll(".dropdown-option");
+        options.forEach(option => {
+          const itemId = parseInt(option.dataset.itemId);
+          const isSelected = this.selectedItems.some(item => item.id === itemId);
+          if (isSelected) {
+            option.classList.add("selected");
+          } else {
+            option.classList.remove("selected");
+          }
+        });
+      }
+
+      // Function to update the text of the "Selected items" button
+      updateSelectedItemsButtonText() {
+        this.selectedItemsButton.textContent = `Selected items (${this.selectedItems.length})`;
+      }
+
+      // Function to create pagination links
+      createPagination(totalPages, currentPage) {
+        this.paginationContainer.innerHTML = "";
+        if (totalPages > 1) {
+          const pagination = document.createElement("ul");
+          pagination.classList.add("pagination");
+          for (let i = 1; i <= totalPages; i++) {
+            const pageLink = document.createElement("li");
+            const link = document.createElement("a");
+            link.textContent = i;
+            link.href = "#";
+            link.addEventListener("click", () => {
+              this.loadPage(i);
+            });
+            if (i === currentPage) {
+              pageLink.classList.add("active");
+            }
+            pageLink.appendChild(link);
+            pagination.appendChild(pageLink);
+          }
+          this.paginationContainer.appendChild(pagination);
+        }
+      }
+
+      // Function to load a specific page
+      async loadPage(page) {
+        this.currentPage = page;
+        const keyword = this.searchInput.value.trim();
+        const data = await fetchData(page, keyword, this.lastFetchStartIndex, 20);
+        this.populateDropdownOptions(data.options);
+        this.createPagination(data.totalPages, data.currentPage);
+        this.lastFetchStartIndex += 20;
+      }
+
+      // Function to load more options when scrolling
+      async loadMoreOptions() {
+        const scrollHeight = this.dropdownOptions.scrollHeight;
+        const scrollTop = this.dropdownOptions.scrollTop;
+        const clientHeight = this.dropdownOptions.clientHeight;
+
+        if (scrollTop + clientHeight >= scrollHeight - 10 && !this.fetchingData) {
+          this.fetchingData = true;
+          const keyword = this.searchInput.value.trim();
+          const data = await fetchData(this.currentPage, keyword, this.lastFetchStartIndex, 20);
+          this.populateDropdownOptions(data.options);
+          this.lastFetchStartIndex += 20;
+          this.fetchingData = false;
+        }
+      }
+
+      // Function to update dropdown options based on keyword
+      async updateDropdownOptionsByKeyword() {
+        this.dropdownOptions.innerHTML = "";
+        this.items = [];
+        this.lastFetchStartIndex = 0;
+        this.currentKeyword = this.searchInput.value.trim();
+        const data = await fetchData(this.currentPage, this.currentKeyword, this.lastFetchStartIndex, 20);
+        this.populateDropdownOptions(data.options);
+        this.createPagination(data.totalPages, data.currentPage);
+        this.lastFetchStartIndex += 20;
+      }
+
+      // Function to show the dropdown options
+      showDropdownOptions() {
+        this.dropdownOptions.style.display = "block";
+      }
+
+      // Function to hide the dropdown options
+      hideDropdownOptions() {
+        this.dropdownOptions.style.display = "none";
+      }
+
+      // Function to check all options
+      checkAllOptions() {
+        const options = this.dropdownOptions.querySelectorAll(".dropdown-option");
+        options.forEach(option => {
+          option.classList.add("selected");
+          const itemId = parseInt(option.dataset.itemId);
+          const item = { id: itemId, name: option.textContent };
+          if (!this.selectedItems.some(selectedItem => selectedItem.id === itemId)) {
+            this.selectedItems.push(item);
+          }
+        });
+
+        this.updateOptionSelection();
+        this.updateSelectedItemsButtonText();
+        this.logSelectedItemIds();
+        this.updatePreviewDialog();
+      }
+
+      // Function to uncheck all options
+      uncheckAllOptions() {
+        const options = this.dropdownOptions.querySelectorAll(".dropdown-option");
+        options.forEach(option => {
+          const itemId = parseInt(option.dataset.itemId);
+          if (this.selectedItems.some(item => item.id === itemId)) {
+            const index = this.selectedItems.findIndex(item => item.id === itemId);
+            if (index !== -1) {
+              this.selectedItems.splice(index, 1);
+            }
+            option.classList.remove("selected");
+          }
+        });
+
+        this.updateOptionSelection();
+        this.updateSelectedItemsButtonText();
+        this.logSelectedItemIds();
+        this.updatePreviewDialog();
+      }
+
+      // Function to reset all selections and search
+      resetAll() {
+        this.selectedItems.length = 0;
+        this.updateSelectedItemsButtonText();
+        this.searchInput.value = "";
+        this.updateDropdownOptionsByKeyword("");
+        this.currentPage = 1;
+        this.lastFetchStartIndex = 0;
+        this.createPagination(1, 1);
+        this.logSelectedItemIds();
+        this.updatePreviewDialog();
+      }
+
+      // Function to show the preview dialog
+      showPreviewDialog() {
+        this.updatePreviewDialog();
+        this.previewDialog.style.display = "flex";
+      }
+
+      // Function to close the preview dialog
+      closePreviewDialog() {
+        this.previewDialog.style.display = "none";
+      }
+
+      // Function to update the preview dialog content
+      updatePreviewDialog() {
+        this.previewItemsList.innerHTML = "";
+        this.selectedItems.forEach(item => {
+          const li = document.createElement("li");
+          li.textContent = `${item.name} (ID: ${item.id})`;
+          this.previewItemsList.appendChild(li);
+        });
+      }
+
+      // Function to log selected item IDs in the console
+      logSelectedItemIds() {
+        const selectedIds = this.selectedItems.map(item => item.id);
+        console.log("Selected Item IDs:", selectedIds);
+      }
+    }
+
+    const dropdownFilter = new DropdownFilter(
+      ".dropdown-options",
+      "#search-input",
+      "#selected-items",
+      "#pagination",
+      "#check-all",
+      "#uncheck-all",
+      "#reset"
+    );
+  </script>
+
+</body>
+
+</html>
