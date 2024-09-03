@@ -444,14 +444,46 @@
                 const selectedIds = this.selectedItems.map(item => item.id);
                 console.log(`Selected Item IDs for ${this.containerId}:`, selectedIds);
             }
+
+            // New function to get selected items
+            getSelectedItems() {
+                return this.selectedItems;
+            }
+
+            // New function to set selected items
+            setSelectedItems(itemIds) {
+                // Clear current selection
+                this.selectedItems = [];
+                const options = this.dropdownOptions.querySelectorAll(".htmlssp-dropdown-option");
+                options.forEach(option => option.classList.remove("htmlssp-selected"));
+
+                // Set new selection
+                itemIds.forEach(id => {
+                    const option = this.dropdownOptions.querySelector(`[data-item-id="${id}"]`);
+                    if (option) {
+                        option.classList.add("htmlssp-selected");
+                        const item = { id: parseInt(id), name: option.textContent };
+                        this.selectedItems.push(item);
+                    }
+                });
+
+                this.updateSelectedItemsButtonText();
+                this.updatePreviewDialog();
+                this.logSelectedItemIds();
+            }
         }
+
+        // Global object to store dropdown instances
+        const dropdownInstances = {};
 
         // Function to create a new dropdown filter
         function createHTMLSSPDropdownFilter(containerId) {
             const container = document.createElement('div');
             container.id = containerId;
             document.getElementById('htmlssp-dropdowns-container').appendChild(container);
-            return new HTMLSSPDropdownFilter(containerId);
+            const instance = new HTMLSSPDropdownFilter(containerId);
+            dropdownInstances[containerId] = instance;
+            return instance;
         }
 
         // Create initial dropdown filters
@@ -459,8 +491,48 @@
         const dropdownB = createHTMLSSPDropdownFilter('dropdown-b');
         const dropdownC = createHTMLSSPDropdownFilter('dropdown-c');
 
-    // Example of how to add a new dropdown filter dynamically
-    // const dropdownD = createHTMLSSPDropdownFilter('dropdown-d');
+        // Example of how to add a new dropdown filter dynamically
+        // const dropdownD = createHTMLSSPDropdownFilter('dropdown-d');
+
+        // Function to get selected items for a specific dropdown
+        function getSelectedItemsForDropdown(dropdownId) {
+            const dropdown = dropdownInstances[dropdownId];
+            if (!dropdown) {
+                console.error(`Dropdown with id ${dropdownId} not found`);
+                return [];
+            }
+            return dropdown.getSelectedItems();
+        }
+
+        // Function to set selected items for a specific dropdown
+        function setSelectedItemsForDropdown(dropdownId, itemIds) {
+            const dropdown = dropdownInstances[dropdownId];
+            if (!dropdown) {
+                console.error(`Dropdown with id ${dropdownId} not found`);
+                return;
+            }
+            dropdown.setSelectedItems(itemIds);
+        }
+
+        // New function to get only the selected item IDs for a specific dropdown
+        function getSelectedItemIdsForDropdown(dropdownId) {
+            const dropdown = dropdownInstances[dropdownId];
+            if (!dropdown) {
+                console.error(`Dropdown with id ${dropdownId} not found`);
+                return [];
+            }
+            return dropdown.getSelectedItems().map(item => item.id);
+        }
+
+        // Example usage:
+        // Get selected items for dropdown A
+        // console.log(getSelectedItemsForDropdown('dropdown-a'));
+
+        // Set selected items for dropdown B
+        // setSelectedItemsForDropdown('dropdown-b', [1, 3, 5]);
+
+        // Get selected item IDs for dropdown C
+        // console.log(getSelectedItemIdsForDropdown('dropdown-c'));
     </script>
 
 </body>
