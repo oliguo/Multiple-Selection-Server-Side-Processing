@@ -194,25 +194,14 @@
     <div id="htmlssp-dropdowns-container"></div>
 
     <script type="text/javascript">
-        // Function to fetch data from the server (replace with your actual data fetching logic)
-        async function htmlsspFetchData(page, keyword, startIndex = 0, limit = 20) {
-            try {
-                const response = await fetch(`fetch_items.php?page=${page}&keyword=${keyword}&startIndex=${startIndex}&limit=${limit}`);
-                const data = await response.json();
-                return data;
-            } catch (error) {
-                console.error("Error fetching data:", error);
-                return { options: [], totalPages: 0, currentPage: 0 };
-            }
-        }
-
 
         // Dropdown Filter Class
         class HTMLSSPDropdownFilter {
-            constructor(containerId, cssOptions = {}) {
+            constructor(containerId, cssOptions = {}, fetchDataParams = []) {
                 this.containerId = containerId;
                 this.container = document.getElementById(containerId);
                 this.cssOptions = cssOptions;
+                this.fetchDataParams = fetchDataParams;
                 this.render();
                 this.applyCustomCSS();
                 this.initializeElements();
@@ -404,11 +393,30 @@
                 }
             }
 
+            // Function to fetch data from the server (replace with your actual data fetching logic)
+            async htmlsspFetchData(page, keyword, startIndex = 0, limit = 20) {
+                if (this.fetchDataParams.length > 0) {
+                    const [fetchUrl, ...params] = this.fetchDataParams;
+                    const response = await fetch(`${fetchUrl}?page=${page}&keyword=${keyword}&startIndex=${startIndex}&limit=${limit}`);
+                    return await response.json();
+                } else {
+                    // Default implementation
+                    try {
+                        const response = await fetch(`fetch_items.php?page=${page}&keyword=${keyword}&startIndex=${startIndex}&limit=${limit}`);
+                        const data = await response.json();
+                        return data;
+                    } catch (error) {
+                        console.error("Error fetching data:", error);
+                        return { options: [], totalPages: 0, currentPage: 0 };
+                    }
+                }
+            }
+
             // Load a specific page of options
             async loadPage(page) {
                 this.currentPage = page;
                 const keyword = this.searchInput.value.trim();
-                const data = await htmlsspFetchData(page, keyword, this.lastFetchStartIndex, 20);
+                const data = await this.htmlsspFetchData(page, keyword, this.lastFetchStartIndex, 20);
                 this.populateDropdownOptions(data.options);
                 this.createPagination(data.totalPages, data.currentPage);
                 this.lastFetchStartIndex += 20;
@@ -420,7 +428,7 @@
                 if (scrollTop + clientHeight >= scrollHeight - 10 && !this.fetchingData) {
                     this.fetchingData = true;
                     const keyword = this.searchInput.value.trim();
-                    const data = await htmlsspFetchData(this.currentPage, keyword, this.lastFetchStartIndex, 20);
+                    const data = await this.htmlsspFetchData(this.currentPage, keyword, this.lastFetchStartIndex, 20);
                     this.populateDropdownOptions(data.options);
                     this.lastFetchStartIndex += 20;
                     this.fetchingData = false;
@@ -433,7 +441,7 @@
                 this.items = [];
                 this.lastFetchStartIndex = 0;
                 this.currentKeyword = this.searchInput.value.trim();
-                const data = await htmlsspFetchData(1, this.currentKeyword, 0, 20);
+                const data = await this.htmlsspFetchData(1, this.currentKeyword, 0, 20);
                 this.populateDropdownOptions(data.options);
                 this.createPagination(data.totalPages, data.currentPage);
                 this.lastFetchStartIndex += 20;
@@ -537,7 +545,33 @@
                 });
 
                 this.updateUI();
-                this.showDropdownOptions(); // Show the dropdown to reflect the changes
+                // Keep the dropdown hidden when setting items
+                this.hideDropdownOptions();
+            }
+
+            // Get selected items
+            getSelectedItems() {
+                return this.selectedItems;
+            }
+
+            // Get selected item IDs
+            getSelectedItemIds() {
+                return this.selectedItems.map(item => item.id);
+            }
+
+            // Set selected items (public method)
+            async setSelectedItemsForDropdown(itemIds) {
+                await this.setSelectedItems(itemIds);
+            }
+
+            // Get selected items (public method)
+            getSelectedItemsForDropdown() {
+                return this.getSelectedItems();
+            }
+
+            // Get selected item IDs (public method)
+            getSelectedItemIdsForDropdown() {
+                return this.getSelectedItemIds();
             }
 
             // Load all items (useful for setSelectedItems)
@@ -545,7 +579,7 @@
                 let page = 1;
                 let hasMore = true;
                 while (hasMore) {
-                    const data = await htmlsspFetchData(page, "", 0, 100);
+                    const data = await this.htmlsspFetchData(page, "", 0, 100);
                     this.populateDropdownOptions(data.options);
                     hasMore = data.options.length === 100;
                     page++;
@@ -557,64 +591,36 @@
         const dropdownInstances = {};
 
         // Function to create a new dropdown filter
-        function createHTMLSSPDropdownFilter(containerId, cssOptions = {}) {
+        function createHTMLSSPDropdownFilter(containerId, cssOptions = {}, fetchDataParams = []) {
             const container = document.createElement('div');
             container.id = containerId;
             document.getElementById('htmlssp-dropdowns-container').appendChild(container);
-            const instance = new HTMLSSPDropdownFilter(containerId, cssOptions);
-            dropdownInstances[containerId] = instance;
-            return instance;
-        }
-
-        // Create initial dropdown filters
-        const dropdownA = createHTMLSSPDropdownFilter('dropdown-a');
-        const dropdownB = createHTMLSSPDropdownFilter('dropdown-b');
-        const dropdownC = createHTMLSSPDropdownFilter('dropdown-c', {
-            container: 'width: 550px; font-family: "Roboto", sans-serif;',
-            searchInput: 'background-color: #d0d0d0; color: #555;',
-            button: 'background-color: #FF5722; color: white;',
-            dropdownOptions: 'max-height: 300px; border: 2px solid #FF5722;',
-        });
-
-        // Function to get selected items for a specific dropdown
-        function getSelectedItemsForDropdown(dropdownId) {
-            const dropdown = dropdownInstances[dropdownId];
-            if (!dropdown) {
-                console.error(`Dropdown with id ${dropdownId} not found`);
-                return [];
-            }
-            return dropdown.getSelectedItems();
-        }
-
-        // Function to set selected items for a specific dropdown
-        async function setSelectedItemsForDropdown(dropdownId, itemIds) {
-            const dropdown = dropdownInstances[dropdownId];
-            if (!dropdown) {
-                console.error(`Dropdown with id ${dropdownId} not found`);
-                return;
-            }
-            await dropdown.setSelectedItems(itemIds);
-        }
-
-        // Function to get only the selected item IDs for a specific dropdown
-        function getSelectedItemIdsForDropdown(dropdownId) {
-            const dropdown = dropdownInstances[dropdownId];
-            if (!dropdown) {
-                console.error(`Dropdown with id ${dropdownId} not found`);
-                return [];
-            }
-            return dropdown.getSelectedItems().map(item => item.id);
+            return new HTMLSSPDropdownFilter(containerId, cssOptions, fetchDataParams);
         }
 
         // Example usage:
-        // console.log(getSelectedItemsForDropdown('dropdown-a'));
-        // Wait for dropdowns to initialize before setting items
-        setTimeout(async () => {
-            await setSelectedItemsForDropdown('dropdown-b', [1, 3, 5]);
-            console.log(getSelectedItemsForDropdown('dropdown-b'));
-        }, 1000);
-        // console.log(getSelectedItemIdsForDropdown('dropdown-c'));
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Create initial dropdown filters
+            const dropdownA = createHTMLSSPDropdownFilter('dropdown-a');
+            const dropdownB = createHTMLSSPDropdownFilter('dropdown-b');
+            const dropdownC = createHTMLSSPDropdownFilter('dropdown-c', {
+                container: 'width: 550px; font-family: "Roboto", sans-serif;',
+                searchInput: 'background-color: #d0d0d0; color: #555;',
+                button: 'background-color: #FF5722; color: white;',
+                dropdownOptions: 'max-height: 300px; border: 2px solid #FF5722;',
+            });
 
+            // Example with custom fetch parameters
+            const htmlsspFetchDataBypass = ['fetch_items.php'];
+            const dropdownD = createHTMLSSPDropdownFilter('dropdown-d', {}, htmlsspFetchDataBypass);
+
+            // Wait for dropdowns to initialize before setting items
+            setTimeout(async () => {
+                await dropdownB.setSelectedItemsForDropdown([1, 3, 5]);
+                console.log("Selected items for dropdown B:", dropdownB.getSelectedItemsForDropdown());
+                console.log("Selected item IDs for dropdown B:", dropdownB.getSelectedItemIdsForDropdown());
+            }, 1000);
+        });
     </script>
 
 </body>
