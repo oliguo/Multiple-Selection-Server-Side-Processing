@@ -24,6 +24,14 @@
 ## Generate the search filter
     // Create initial dropdown filters
     const dropdownA = createHTMLSSPDropdownFilter('dropdown-a');
+    
+    // Create initial dropdown filters with custom CSS
+    const dropdownA = createHTMLSSPDropdownFilter('dropdown-a', {
+        container: 'width: 500px; font-family: "Helvetica", sans-serif;',
+        searchInput: 'background-color: #f0f0f0; color: #333;',
+        button: 'background-color: #4CAF50; color: white;',
+        dropdownOptions: 'max-height: 250px; border: 2px solid #4CAF50;',
+    });
 ## Get Items, Items' id
     // Example usage:
     // Get selected items for dropdown A
