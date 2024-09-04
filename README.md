@@ -9,38 +9,30 @@
      <div id="htmlssp-dropdowns-container"></div>
 
 ## Change the api / data from server side "fetch_items.php"
+    //you can follow the paramter to pass
     // Function to fetch data from the server (replace with your actual data fetching logic)
-    async function htmlsspFetchData(page, keyword, startIndex = 0, limit = 20) {
-        try {
-            const response = await fetch(`fetch_items.php?page=${page}&keyword=${keyword}&startIndex=${startIndex}&limit=${limit}`);
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error("Error fetching data:", error);
-            return { options: [], totalPages: 0, currentPage: 0 };
-        }
-    }
-
-## Generate the search filter
+    // async htmlsspFetchData(page, keyword, startIndex = 0, limit = 20) {...}
+    const htmlsspFetchDataBypass = ['fetch_items.php'];
+    const dropdownD = createHTMLSSPDropdownFilter('dropdown-d', {}, htmlsspFetchDataBypass);
+## Init
     // Create initial dropdown filters
     const dropdownA = createHTMLSSPDropdownFilter('dropdown-a');
-    
-    // Create initial dropdown filters with custom CSS
-    const dropdownA = createHTMLSSPDropdownFilter('dropdown-a', {
-        container: 'width: 500px; font-family: "Helvetica", sans-serif;',
-        searchInput: 'background-color: #f0f0f0; color: #333;',
-        button: 'background-color: #4CAF50; color: white;',
-        dropdownOptions: 'max-height: 250px; border: 2px solid #4CAF50;',
+    const dropdownB = createHTMLSSPDropdownFilter('dropdown-b');
+    const dropdownC = createHTMLSSPDropdownFilter('dropdown-c', {
+        container: 'width: 550px; font-family: "Roboto", sans-serif;',
+        searchInput: 'background-color: #d0d0d0; color: #555;',
+        button: 'background-color: #FF5722; color: white;',
+        dropdownOptions: 'max-height: 300px; border: 2px solid #FF5722;',
     });
-## Get Items, Items' id
-    // Example usage:
-    // Get selected items for dropdown A
-    // console.log(getSelectedItemsForDropdown('dropdown-a'));
 
-    // Get selected item IDs for dropdown C
-    // console.log(getSelectedItemIdsForDropdown('dropdown-c'));
+    // Example with custom fetch parameters
+    const htmlsspFetchDataBypass = ['fetch_items.php'];
+    const dropdownD = createHTMLSSPDropdownFilter('dropdown-d', {}, htmlsspFetchDataBypass);
 
-## Preset existing items on the list
-    // Set selected items for dropdown B
-    // setSelectedItemsForDropdown('dropdown-b', [1, 3, 5]);
+    // Wait for dropdowns to initialize before setting items
+    setTimeout(async () => {
+        await dropdownB.setSelectedItemsForDropdown([1, 3, 5]);
+        console.log("Selected items for dropdown B:", dropdownB.getSelectedItemsForDropdown());
+        console.log("Selected item IDs for dropdown B:", dropdownB.getSelectedItemIdsForDropdown());
+    }, 1000);
     
