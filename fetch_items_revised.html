@@ -174,9 +174,10 @@
 
         // Dropdown Filter Class
         class HTMLSSPDropdownFilter {
-            constructor(containerId) {
+            constructor(containerId, cssOptions = {}) {
                 this.containerId = containerId;
                 this.container = document.getElementById(containerId);
+                this.cssOptions = cssOptions;
                 this.render();
 
                 this.dropdownOptions = this.container.querySelector(".htmlssp-dropdown-options");
@@ -229,6 +230,45 @@
             </div>
           </div>
         `;
+
+                this.applyCustomCSS();
+            }
+
+            applyCustomCSS() {
+                const style = document.createElement('style');
+                style.textContent = `
+        #${this.containerId} .htmlssp-dropdown-container {
+            ${this.cssOptions.container || ''}
+        }
+        #${this.containerId} .htmlssp-search-container {
+            ${this.cssOptions.searchContainer || ''}
+        }
+        #${this.containerId} .htmlssp-search-input {
+            ${this.cssOptions.searchInput || ''}
+        }
+        #${this.containerId} .htmlssp-button-group {
+            ${this.cssOptions.buttonGroup || ''}
+        }
+        #${this.containerId} .htmlssp-button-group button {
+            ${this.cssOptions.button || ''}
+        }
+        #${this.containerId} .htmlssp-dropdown-options {
+            ${this.cssOptions.dropdownOptions || ''}
+        }
+        #${this.containerId} .htmlssp-dropdown-option {
+            ${this.cssOptions.dropdownOption || ''}
+        }
+        #${this.containerId} .htmlssp-selected {
+            ${this.cssOptions.selected || ''}
+        }
+        #${this.containerId} .htmlssp-pagination {
+            ${this.cssOptions.pagination || ''}
+        }
+        #${this.containerId} .htmlssp-preview-dialog {
+            ${this.cssOptions.previewDialog || ''}
+        }
+    `;
+                this.container.appendChild(style);
             }
 
             attachEventListeners() {
@@ -477,11 +517,11 @@
         const dropdownInstances = {};
 
         // Function to create a new dropdown filter
-        function createHTMLSSPDropdownFilter(containerId) {
+        function createHTMLSSPDropdownFilter(containerId, cssOptions = {}) {
             const container = document.createElement('div');
             container.id = containerId;
             document.getElementById('htmlssp-dropdowns-container').appendChild(container);
-            const instance = new HTMLSSPDropdownFilter(containerId);
+            const instance = new HTMLSSPDropdownFilter(containerId, cssOptions);
             dropdownInstances[containerId] = instance;
             return instance;
         }
@@ -489,7 +529,29 @@
         // Create initial dropdown filters
         const dropdownA = createHTMLSSPDropdownFilter('dropdown-a');
         const dropdownB = createHTMLSSPDropdownFilter('dropdown-b');
-        const dropdownC = createHTMLSSPDropdownFilter('dropdown-c');
+        // const dropdownC = createHTMLSSPDropdownFilter('dropdown-c');
+        
+        // Create initial dropdown filters with custom CSS
+        // const dropdownA = createHTMLSSPDropdownFilter('dropdown-a', {
+        //     container: 'width: 500px; font-family: "Helvetica", sans-serif;',
+        //     searchInput: 'background-color: #f0f0f0; color: #333;',
+        //     button: 'background-color: #4CAF50; color: white;',
+        //     dropdownOptions: 'max-height: 250px; border: 2px solid #4CAF50;',
+        // });
+
+        // const dropdownB = createHTMLSSPDropdownFilter('dropdown-b', {
+        //     container: 'width: 450px; font-family: "Arial", sans-serif;',
+        //     searchInput: 'background-color: #e0e0e0; color: #444;',
+        //     button: 'background-color: #2196F3; color: white;',
+        //     dropdownOptions: 'max-height: 200px; border: 2px solid #2196F3;',
+        // });
+
+        const dropdownC = createHTMLSSPDropdownFilter('dropdown-c', {
+            container: 'width: 550px; font-family: "Roboto", sans-serif;',
+            searchInput: 'background-color: #d0d0d0; color: #555;',
+            button: 'background-color: #FF5722; color: white;',
+            dropdownOptions: 'max-height: 300px; border: 2px solid #FF5722;',
+        });
 
         // Example of how to add a new dropdown filter dynamically
         // const dropdownD = createHTMLSSPDropdownFilter('dropdown-d');
