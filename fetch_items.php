@@ -1,4 +1,8 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
+
 // Database connection details
 $servername = "localhost";
 $username = "root";
@@ -13,26 +17,56 @@ if ($conn->connect_error) {
   die("Connection failed: " . $conn->connect_error);
 }
 
-// Get search keyword, page number, start index, and limit
-$keyword = isset($_GET['keyword']) ? $_GET['keyword'] : '';
-$page = isset($_GET['page']) ? $_GET['page'] : 1;
-$startIndex = isset($_GET['startIndex']) ? $_GET['startIndex'] : 0;
-$limit = isset($_GET['limit']) ? $_GET['limit'] : 20;
-
-// Build SQL query with search, pagination, start index/limit, and order by ID
-$sql = "SELECT * FROM items";
-if (!empty($keyword)) {
-  $sql .= " WHERE name LIKE '%" . $conn->real_escape_string($keyword) . "%'";
+// Function to get parameter value from either GET or POST
+function getParam($name, $default = '')
+{
+  if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = json_decode(file_get_contents('php://input'), true);
+    return isset($data[$name]) ? $data[$name] : $default;
+  } else {
+    return isset($_GET[$name]) ? $_GET[$name] : $default;
+  }
 }
-$sql .= " ORDER BY id ASC LIMIT $startIndex, $limit"; // Order by ID ASC
+// Get parameters
+$keyword = getParam('keyword', '');
+$page = getParam('page', 1);
+$startIndex = getParam('startIndex', 0);
+$limit = getParam('limit', 20);
+$category = getParam('category', '');
+$sortField = getParam('sortField', 'id');
+$sortOrder = getParam('sortOrder', 'ASC');
+
+// Validate and sanitize sort field and order
+$allowedSortFields = ['id', 'name', 'price', 'category']; // Add all allowed fields
+$sortField = in_array($sortField, $allowedSortFields) ? $sortField : 'id';
+$sortOrder = (strtoupper($sortOrder) === 'DESC') ? 'DESC' : 'ASC';
+
+// Build SQL query
+$sql = "SELECT * FROM items";
+$whereClauses = [];
+
+if (!empty($keyword)) {
+  $whereClauses[] = "name LIKE '%" . $conn->real_escape_string($keyword) . "%'";
+}
+
+if (!empty($category)) {
+  $whereClauses[] = "category = '" . $conn->real_escape_string($category) . "'";
+}
+
+if (!empty($whereClauses)) {
+  $sql .= " WHERE " . implode(" AND ", $whereClauses);
+}
+
+$sql .= " ORDER BY " . $conn->real_escape_string($sortField) . " " . $sortOrder;
+$sql .= " LIMIT $startIndex, $limit";
 
 // Execute the query
 $result = $conn->query($sql);
 
 // Calculate total pages
 $sqlTotal = "SELECT COUNT(*) AS total FROM items";
-if (!empty($keyword)) {
-  $sqlTotal .= " WHERE name LIKE '%" . $conn->real_escape_string($keyword) . "%'";
+if (!empty($whereClauses)) {
+  $sqlTotal .= " WHERE " . implode(" AND ", $whereClauses);
 }
 $resultTotal = $conn->query($sqlTotal);
 $totalRows = $resultTotal->fetch_assoc()['total'];
@@ -41,7 +75,7 @@ $totalPages = ceil($totalRows / $limit);
 // Fetch data and store in an array
 $options = [];
 if ($result->num_rows > 0) {
-  while($row = $result->fetch_assoc()) {
+  while ($row = $result->fetch_assoc()) {
     $options[] = $row;
   }
 }
@@ -50,7 +84,9 @@ if ($result->num_rows > 0) {
 $response = [
   'options' => $options,
   'totalPages' => $totalPages,
-  'currentPage' => $page
+  'currentPage' => $page,
+  'sortField' => $sortField,
+  'sortOrder' => $sortOrder
 ];
 
 header('Content-type: application/json');
@@ -58,4 +94,3 @@ echo json_encode($response);
 
 // Close the database connection
 $conn->close();
-?>
