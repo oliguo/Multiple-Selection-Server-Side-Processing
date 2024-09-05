@@ -194,6 +194,18 @@
     <div id="htmlssp-dropdowns-container"></div>
 
     <script type="text/javascript">
+        // Debounce function
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
 
         // Dropdown Filter Class
         class HTMLSSPDropdownFilter {
@@ -215,6 +227,9 @@
                 this.currentKeyword = fetchDataParams.initialKeyword || "";
                 this.itemsPerPage = fetchDataParams.itemsPerPage || 20;
                 this.updateSelectedItemsButtonText();
+                this.cache = new Map();
+                this.virtualScrolling = fetchDataParams.virtualScrolling || false;
+                this.virtualScrollingThreshold = fetchDataParams.virtualScrollingThreshold || 1000;
             }
 
             // Render the initial HTML structure
@@ -330,25 +345,39 @@
                 this.updateUI();
             }
 
-            // Populate dropdown options with fetched data
-            populateDropdownOptions(options) {
-                options.forEach((item, index) => {
-                    if (!this.items.some(i => i.id === item.id)) {
-                        this.items.push(item);
-                    }
+            // Show error message to the user
+            showErrorMessage(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.textContent = message;
+                errorDiv.style.color = 'red';
+                errorDiv.style.marginTop = '10px';
+                this.container.appendChild(errorDiv);
+                setTimeout(() => errorDiv.remove(), 5000);
+            }
 
-                    const existingOption = this.dropdownOptions.querySelector(`[data-item-id="${item.id}"]`);
-                    if (existingOption) {
-                        existingOption.textContent = item.name;
-                    } else {
-                        const option = document.createElement("div");
-                        option.classList.add("htmlssp-dropdown-option");
-                        option.textContent = item.name;
-                        option.dataset.itemId = item.id;
-                        option.addEventListener("click", () => this.selectOption(option));
-                        this.dropdownOptions.appendChild(option);
-                    }
-                });
+            // Updated method to populate dropdown options
+            populateDropdownOptions(options) {
+                if (this.virtualScrolling && this.items.length + options.length > this.virtualScrollingThreshold) {
+                    this.implementVirtualScrolling();
+                } else {
+                    options.forEach((item, index) => {
+                        if (!this.items.some(i => i.id === item.id)) {
+                            this.items.push(item);
+                        }
+
+                        const existingOption = this.dropdownOptions.querySelector(`[data-item-id="${item.id}"]`);
+                        if (existingOption) {
+                            existingOption.textContent = item.name;
+                        } else {
+                            const option = document.createElement("div");
+                            option.classList.add("htmlssp-dropdown-option");
+                            option.textContent = item.name;
+                            option.dataset.itemId = item.id;
+                            option.addEventListener("click", () => this.selectOption(option));
+                            this.dropdownOptions.appendChild(option);
+                        }
+                    });
+                }
 
                 this.updateUI();
             }
@@ -402,6 +431,11 @@
 
             // Function to fetch data from the server (replace with your actual data fetching logic)
             async htmlsspFetchData(page, keyword, startIndex, limit) {
+                const cacheKey = `${page}-${keyword}-${startIndex}-${limit}-${this.sortField}-${this.sortOrder}`;
+                if (this.cache.has(cacheKey)) {
+                    return this.cache.get(cacheKey);
+                }
+
                 const fetchUrl = this.fetchDataParams.fetchUrl || 'fetch_items.php';
                 const method = this.fetchDataParams.method || 'GET';
                 const params = {
@@ -431,10 +465,16 @@
                         throw new Error('Unsupported HTTP method');
                     }
 
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
                     const data = await response.json();
+                    this.cache.set(cacheKey, data);
                     return data;
                 } catch (error) {
                     console.error("Error fetching data:", error);
+                    this.showErrorMessage("An error occurred while fetching data. Please try again.");
                     return { options: [], totalPages: 0, currentPage: 0 };
                 }
             }
@@ -469,16 +509,64 @@
                 }
             }
 
-            // Update dropdown options based on keyword search
-            async updateDropdownOptionsByKeyword() {
-                this.dropdownOptions.innerHTML = "";
-                this.items = [];
-                this.lastFetchStartIndex = 0;
-                this.currentKeyword = this.searchInput.value.trim();
-                const data = await this.htmlsspFetchData(1, this.currentKeyword, 0, this.itemsPerPage);
-                this.populateDropdownOptions(data.options);
-                this.createPagination(data.totalPages, data.currentPage);
-                this.lastFetchStartIndex += this.itemsPerPage;
+            // Implement virtual scrolling
+            implementVirtualScrolling() {
+                // Clear existing options
+                this.dropdownOptions.innerHTML = '';
+
+                // Create a container for virtual scrolling
+                const virtualScrollContainer = document.createElement('div');
+                virtualScrollContainer.style.height = '250px';
+                virtualScrollContainer.style.overflowY = 'scroll';
+                this.dropdownOptions.appendChild(virtualScrollContainer);
+
+                // Create a content div
+                const contentDiv = document.createElement('div');
+                virtualScrollContainer.appendChild(contentDiv);
+
+                // Function to render visible items
+                const renderVisibleItems = () => {
+                    const scrollTop = virtualScrollContainer.scrollTop;
+                    const containerHeight = virtualScrollContainer.clientHeight;
+                    const itemHeight = 30; // Assuming each item is 30px high
+
+                    const startIndex = Math.floor(scrollTop / itemHeight);
+                    const endIndex = Math.min(this.items.length, Math.ceil((scrollTop + containerHeight) / itemHeight));
+
+                    contentDiv.style.height = `${this.items.length * itemHeight}px`;
+                    contentDiv.innerHTML = '';
+
+                    for (let i = startIndex; i < endIndex; i++) {
+                        const item = this.items[i];
+                        const option = document.createElement("div");
+                        option.classList.add("htmlssp-dropdown-option");
+                        option.textContent = item.name;
+                        option.dataset.itemId = item.id;
+                        option.style.position = 'absolute';
+                        option.style.top = `${i * itemHeight}px`;
+                        option.addEventListener("click", () => this.selectOption(option));
+                        contentDiv.appendChild(option);
+                    }
+                };
+
+                virtualScrollContainer.addEventListener('scroll', debounce(renderVisibleItems, 100));
+                renderVisibleItems();
+            }
+
+            // Updated method to update dropdown options based on keyword search
+            updateDropdownOptionsByKeyword() {
+                const debouncedUpdate = debounce(async () => {
+                    this.dropdownOptions.innerHTML = "";
+                    this.items = [];
+                    this.lastFetchStartIndex = 0;
+                    this.currentKeyword = this.searchInput.value.trim();
+                    const data = await this.htmlsspFetchData(1, this.currentKeyword, 0, this.itemsPerPage);
+                    this.populateDropdownOptions(data.options);
+                    this.createPagination(data.totalPages, data.currentPage);
+                    this.lastFetchStartIndex += this.itemsPerPage;
+                }, 300);
+
+                debouncedUpdate();
             }
 
             // Show dropdown options
@@ -540,11 +628,14 @@
                 this.previewDialog.style.display = "none";
             }
 
-            // Update preview dialog content
+            // Updated method to update preview dialog content
             updatePreviewDialog() {
-                this.previewItemsList.innerHTML = this.selectedItems
-                    .map(item => `<li> ${item.name} (ID: ${item.id})</li> `)
-                    .join('');
+                this.previewItemsList.innerHTML = '';
+                this.selectedItems.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = `${item.name} (ID: ${item.id})`;
+                    this.previewItemsList.appendChild(li);
+                });
             }
 
             // Log selected item IDs to console
