@@ -197,7 +197,7 @@
 
         // Dropdown Filter Class
         class HTMLSSPDropdownFilter {
-            constructor(containerId, cssOptions = {}, fetchDataParams = []) {
+            constructor(containerId, cssOptions = {}, fetchDataParams = {}) {
                 this.containerId = containerId;
                 this.container = document.getElementById(containerId);
                 this.cssOptions = cssOptions;
@@ -208,10 +208,10 @@
                 this.attachEventListeners();
                 this.selectedItems = [];
                 this.items = [];
-                this.currentPage = 1;
-                this.lastFetchStartIndex = 0;
-                this.currentKeyword = "";
-                this.loadPage(1);
+                this.currentPage = fetchDataParams.initialPage || 1;
+                this.lastFetchStartIndex = fetchDataParams.initialStartIndex || 0;
+                this.currentKeyword = fetchDataParams.initialKeyword || "";
+                this.itemsPerPage = fetchDataParams.itemsPerPage || 20;
                 this.updateSelectedItemsButtonText();
             }
 
@@ -246,7 +246,12 @@
             // Initialize element references
             initializeElements() {
                 this.dropdownOptions = this.container.querySelector(".htmlssp-dropdown-options");
+
                 this.searchInput = this.container.querySelector(".htmlssp-search-input");
+                if (this.currentKeyword) {
+                    this.searchInput.value = this.currentKeyword;
+                }
+
                 this.selectedItemsButton = this.container.querySelector(".htmlssp-selected-items");
                 this.paginationContainer = this.container.querySelector(".htmlssp-pagination");
                 this.checkAllButton = this.container.querySelector(".htmlssp-check-all");
@@ -394,32 +399,34 @@
             }
 
             // Function to fetch data from the server (replace with your actual data fetching logic)
-            async htmlsspFetchData(page, keyword, startIndex = 0, limit = 20) {
-                if (this.fetchDataParams.length > 0) {
-                    const [fetchUrl, ...params] = this.fetchDataParams;
-                    const response = await fetch(`${fetchUrl}?page=${page}&keyword=${keyword}&startIndex=${startIndex}&limit=${limit}`);
-                    return await response.json();
-                } else {
-                    // Default implementation
-                    try {
-                        const response = await fetch(`fetch_items.php?page=${page}&keyword=${keyword}&startIndex=${startIndex}&limit=${limit}`);
-                        const data = await response.json();
-                        return data;
-                    } catch (error) {
-                        console.error("Error fetching data:", error);
-                        return { options: [], totalPages: 0, currentPage: 0 };
-                    }
+            async htmlsspFetchData(page, keyword, startIndex, limit) {
+                const fetchUrl = this.fetchDataParams.fetchUrl || 'fetch_items.php';
+                const queryParams = new URLSearchParams({
+                    page: page,
+                    keyword: keyword,
+                    startIndex: startIndex,
+                    limit: limit,
+                    ...(this.fetchDataParams.additionalParams || {})
+                });
+
+                try {
+                    const response = await fetch(`${fetchUrl}?${queryParams}`);
+                    const data = await response.json();
+                    return data;
+                } catch (error) {
+                    console.error("Error fetching data:", error);
+                    return { options: [], totalPages: 0, currentPage: 0 };
                 }
             }
 
             // Load a specific page of options
             async loadPage(page) {
                 this.currentPage = page;
-                const keyword = this.searchInput.value.trim();
-                const data = await this.htmlsspFetchData(page, keyword, this.lastFetchStartIndex, 20);
+                const keyword = this.searchInput.value.trim() || this.currentKeyword;
+                const data = await this.htmlsspFetchData(page, keyword, this.lastFetchStartIndex, this.itemsPerPage);
                 this.populateDropdownOptions(data.options);
                 this.createPagination(data.totalPages, data.currentPage);
-                this.lastFetchStartIndex += 20;
+                this.lastFetchStartIndex += this.itemsPerPage;
             }
 
             // Load more options when scrolling
@@ -427,10 +434,10 @@
                 const { scrollHeight, scrollTop, clientHeight } = this.dropdownOptions;
                 if (scrollTop + clientHeight >= scrollHeight - 10 && !this.fetchingData) {
                     this.fetchingData = true;
-                    const keyword = this.searchInput.value.trim();
-                    const data = await this.htmlsspFetchData(this.currentPage, keyword, this.lastFetchStartIndex, 20);
+                    const keyword = this.searchInput.value.trim() || this.currentKeyword;
+                    const data = await this.htmlsspFetchData(this.currentPage, keyword, this.lastFetchStartIndex, this.itemsPerPage);
                     this.populateDropdownOptions(data.options);
-                    this.lastFetchStartIndex += 20;
+                    this.lastFetchStartIndex += this.itemsPerPage;
                     this.fetchingData = false;
                 }
             }
@@ -441,10 +448,10 @@
                 this.items = [];
                 this.lastFetchStartIndex = 0;
                 this.currentKeyword = this.searchInput.value.trim();
-                const data = await this.htmlsspFetchData(1, this.currentKeyword, 0, 20);
+                const data = await this.htmlsspFetchData(1, this.currentKeyword, 0, this.itemsPerPage);
                 this.populateDropdownOptions(data.options);
                 this.createPagination(data.totalPages, data.currentPage);
-                this.lastFetchStartIndex += 20;
+                this.lastFetchStartIndex += this.itemsPerPage;
             }
 
             // Show dropdown options
@@ -487,6 +494,7 @@
             resetAll() {
                 this.selectedItems = [];
                 this.searchInput.value = "";
+                this.itemsPerPage = 20;//reset default 20
                 this.updateDropdownOptionsByKeyword();
                 this.currentPage = 1;
                 this.lastFetchStartIndex = 0;
@@ -591,12 +599,15 @@
         const dropdownInstances = {};
 
         // Function to create a new dropdown filter
-        function createHTMLSSPDropdownFilter(containerId, cssOptions = {}, fetchDataParams = []) {
+        function createHTMLSSPDropdownFilter(containerId, cssOptions = {}, fetchDataParams = {}) {
             const container = document.createElement('div');
             container.id = containerId;
             document.getElementById('htmlssp-dropdowns-container').appendChild(container);
-            return new HTMLSSPDropdownFilter(containerId, cssOptions, fetchDataParams);
+            const instance = new HTMLSSPDropdownFilter(containerId, cssOptions, fetchDataParams);
+            instance.loadPage(instance.currentPage); // Trigger initial load
+            return instance;
         }
+
 
         // Example usage:
         document.addEventListener('DOMContentLoaded', async () => {
@@ -611,7 +622,19 @@
             });
 
             // Example with custom fetch parameters
-            const htmlsspFetchDataBypass = ['fetch_items.php'];
+            const htmlsspFetchDataBypass = {
+                fetchUrl: 'fetch_items.php',
+                initialPage: 2,
+                initialKeyword: 'apple',
+                initialStartIndex: 10,
+                itemsPerPage: 30,
+                additionalParams: {
+                    category: 'electronics',
+                    sortBy: 'price'
+                }
+            };
+            //fetch_items.php?page=2&keyword=&startIndex=10&limit=30&category=electronics&sortBy=price
+
             const dropdownD = createHTMLSSPDropdownFilter('dropdown-d', {}, htmlsspFetchDataBypass);
 
             // Wait for dropdowns to initialize before setting items
