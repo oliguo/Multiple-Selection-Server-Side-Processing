@@ -202,6 +202,8 @@
                 this.container = document.getElementById(containerId);
                 this.cssOptions = cssOptions;
                 this.fetchDataParams = fetchDataParams;
+                this.sortField = fetchDataParams.sortField || 'id';
+                this.sortOrder = fetchDataParams.sortOrder || 'ASC';
                 this.render();
                 this.applyCustomCSS();
                 this.initializeElements();
@@ -401,22 +403,47 @@
             // Function to fetch data from the server (replace with your actual data fetching logic)
             async htmlsspFetchData(page, keyword, startIndex, limit) {
                 const fetchUrl = this.fetchDataParams.fetchUrl || 'fetch_items.php';
-                const queryParams = new URLSearchParams({
+                const method = this.fetchDataParams.method || 'GET';
+                const params = {
                     page: page,
                     keyword: keyword,
                     startIndex: startIndex,
                     limit: limit,
+                    sortField: this.sortField,
+                    sortOrder: this.sortOrder,
                     ...(this.fetchDataParams.additionalParams || {})
-                });
+                };
 
                 try {
-                    const response = await fetch(`${fetchUrl}?${queryParams}`);
+                    let response;
+                    if (method.toUpperCase() === 'GET') {
+                        const queryParams = new URLSearchParams(params);
+                        response = await fetch(`${fetchUrl}?${queryParams}`);
+                    } else if (method.toUpperCase() === 'POST') {
+                        response = await fetch(fetchUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(params)
+                        });
+                    } else {
+                        throw new Error('Unsupported HTTP method');
+                    }
+
                     const data = await response.json();
                     return data;
                 } catch (error) {
                     console.error("Error fetching data:", error);
                     return { options: [], totalPages: 0, currentPage: 0 };
                 }
+            }
+
+            // Add a new method to change sorting
+            setSorting(field, order) {
+                this.sortField = field;
+                this.sortOrder = order.toUpperCase();
+                this.updateDropdownOptionsByKeyword(); // Refresh the list with new sorting
             }
 
             // Load a specific page of options
@@ -622,20 +649,24 @@
             });
 
             // Example with custom fetch parameters
-            const htmlsspFetchDataBypass = {
+            const dropdownD = createHTMLSSPDropdownFilter('dropdown-d', {}, {
                 fetchUrl: 'fetch_items.php',
+                method: 'POST',
                 initialPage: 2,
-                initialKeyword: 'apple',
+                // initialKeyword: 'apple',
                 initialStartIndex: 10,
                 itemsPerPage: 30,
+                sortField: 'name',
+                sortOrder: 'DESC',
                 additionalParams: {
-                    category: 'electronics',
-                    sortBy: 'price'
+                    // category: 'electronics'
                 }
-            };
-            //fetch_items.php?page=2&keyword=&startIndex=10&limit=30&category=electronics&sortBy=price
+            });
 
-            const dropdownD = createHTMLSSPDropdownFilter('dropdown-d', {}, htmlsspFetchDataBypass);
+            // Example of changing sorting
+            setTimeout(() => {
+                dropdownB.setSorting('name', 'ASC');
+            }, 5000);
 
             // Wait for dropdowns to initialize before setting items
             setTimeout(async () => {
