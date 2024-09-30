@@ -1,0 +1,10 @@
+{
+    "search_placeholder": "搜尋...",
+    "check_all": "全選",
+    "uncheck_all": "取消全選",
+    "reset": "重設",
+    "selected_items": "已選項目",
+    "selected_items_count": "已選項目 ({count})",
+    "preview_dialog_title": "已選項目",
+    "unknown_item": "未知項目 (ID: {id})"
+}

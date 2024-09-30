@@ -1,0 +1,10 @@
+{
+    "search_placeholder": "Search...",
+    "check_all": "Check All",
+    "uncheck_all": "Uncheck All",
+    "reset": "Reset",
+    "selected_items": "Selected items",
+    "selected_items_count": "Selected items ({count})",
+    "preview_dialog_title": "Selected Items",
+    "unknown_item": "Unknown Item (ID: {id})"
+}

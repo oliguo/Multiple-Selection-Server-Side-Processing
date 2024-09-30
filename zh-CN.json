@@ -1,0 +1,10 @@
+{
+    "search_placeholder": "搜索...",
+    "check_all": "全选",
+    "uncheck_all": "取消全选",
+    "reset": "重置",
+    "selected_items": "已选项目",
+    "selected_items_count": "已选项目 ({count})",
+    "preview_dialog_title": "已选项目",
+    "unknown_item": "未知项目 (ID: {id})"
+}
