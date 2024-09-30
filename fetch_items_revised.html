@@ -186,19 +186,6 @@
                 margin-bottom: 0.3125em;
             }
         }
-
-        /* New styles for loading indicator */
-        .htmlssp-loading-indicator {
-            display: none;
-            text-align: center;
-            padding: 10px;
-        }
-
-        /* Focus styles for keyboard navigation */
-        .htmlssp-dropdown-option:focus {
-            outline: 2px solid #007bff;
-            background-color: #f8f9fa;
-        }
     </style>
 </head>
 
@@ -207,18 +194,6 @@
     <div id="htmlssp-dropdowns-container"></div>
 
     <script type="text/javascript">
-        // Debounce function
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
 
         // Dropdown Filter Class
         class HTMLSSPDropdownFilter {
@@ -240,40 +215,38 @@
                 this.currentKeyword = fetchDataParams.initialKeyword || "";
                 this.itemsPerPage = fetchDataParams.itemsPerPage || 20;
                 this.updateSelectedItemsButtonText();
-                this.cache = new Map();
-                this.virtualScrolling = fetchDataParams.virtualScrolling || false;
-                this.virtualScrollingThreshold = fetchDataParams.virtualScrollingThreshold || 1000;
-                this.loadingIndicator = null;
-                this.currentFocusIndex = -1;
+            }
+
+            isInitialized() {
+                return this.items.length > 0;
             }
 
             // Render the initial HTML structure
             render() {
                 this.container.innerHTML = `
-                    <div class="htmlssp-dropdown-container">
-                        <div class="htmlssp-search-container">
-                            <input type="text" class="htmlssp-search-input" placeholder="Search..." aria-label="Search items">
-                            <div class="htmlssp-button-group">
-                                <button class="htmlssp-check-all" aria-label="Check all items">Check All</button>
-                                <button class="htmlssp-uncheck-all" aria-label="Uncheck all items">Uncheck All</button>
-                                <button class="htmlssp-reset" aria-label="Reset selection">Reset</button>
-                                <button class="htmlssp-selected-items" aria-label="View selected items">Selected items</button>
-                            </div>
-                        </div>
-                        <div class="htmlssp-dropdown-options" role="listbox" aria-label="Selectable items"></div>
-                        <div class="htmlssp-loading-indicator" aria-live="polite">Loading...</div>
+            <div class="htmlssp-dropdown-container">
+                <div class="htmlssp-search-container">
+                    <input type="text" class="htmlssp-search-input" placeholder="Search...">
+                    <div class="htmlssp-button-group">
+                        <button class="htmlssp-check-all">Check All</button>
+                        <button class="htmlssp-uncheck-all">Uncheck All</button>
+                        <button class="htmlssp-reset">Reset</button>
+                        <button class="htmlssp-selected-items">Selected items</button>
                     </div>
-                    <div class="htmlssp-pagination"></div>
-                    <div class="htmlssp-preview-dialog" role="dialog" aria-labelledby="preview-dialog-title">
-                        <div class="htmlssp-preview-dialog-header">
-                            <h3 id="preview-dialog-title">Selected Items</h3>
-                            <button class="htmlssp-preview-dialog-close" aria-label="Close dialog">&times;</button>
-                        </div>
-                        <div class="htmlssp-preview-items-container">
-                            <ul class="htmlssp-preview-items-list" role="list"></ul>
-                        </div>
-                    </div>
-                `;
+                </div>
+                <div class="htmlssp-dropdown-options"></div>
+            </div >
+            <div class="htmlssp-pagination"></div>
+            <div class="htmlssp-preview-dialog">
+                <div class="htmlssp-preview-dialog-header">
+                    <h3>Selected Items</h3>
+                    <span class="htmlssp-preview-dialog-close">&times;</span>
+                </div>
+                <div class="htmlssp-preview-items-container">
+                    <ul class="htmlssp-preview-items-list"></ul>
+                </div>
+            </div>
+        `;
             }
 
             // Initialize element references
@@ -299,14 +272,6 @@
                 this.currentPage = 1;
                 this.lastFetchStartIndex = 0;
                 this.currentKeyword = "";
-
-                this.loadingIndicator = this.container.querySelector(".htmlssp-loading-indicator");
-                if (!this.loadingIndicator) {
-                    this.loadingIndicator = document.createElement('div');
-                    this.loadingIndicator.className = 'htmlssp-loading-indicator';
-                    this.loadingIndicator.textContent = 'Loading...';
-                    this.container.appendChild(this.loadingIndicator);
-                }
             }
 
             // Apply custom CSS if provided
@@ -352,53 +317,11 @@
                         this.hideDropdownOptions();
                     }
                 });
-
-                this.searchInput.addEventListener("keydown", (e) => this.handleKeyboardNavigation(e));
-                this.dropdownOptions.addEventListener("keydown", (e) => this.handleKeyboardNavigation(e));
-            }
-
-            handleKeyboardNavigation(e) {
-                const options = Array.from(this.dropdownOptions.querySelectorAll(".htmlssp-dropdown-option"));
-
-                switch (e.key) {
-                    case "ArrowDown":
-                        e.preventDefault();
-                        this.currentFocusIndex = (this.currentFocusIndex + 1) % options.length;
-                        options[this.currentFocusIndex].focus();
-                        break;
-                    case "ArrowUp":
-                        e.preventDefault();
-                        this.currentFocusIndex = (this.currentFocusIndex - 1 + options.length) % options.length;
-                        options[this.currentFocusIndex].focus();
-                        break;
-                    case "Enter":
-                        if (this.currentFocusIndex >= 0) {
-                            e.preventDefault();
-                            this.selectOption(options[this.currentFocusIndex]);
-                        }
-                        break;
-                    case "Escape":
-                        this.hideDropdownOptions();
-                        this.searchInput.focus();
-                        break;
-                }
-            }
-
-            showLoadingIndicator() {
-                if (this.loadingIndicator) {
-                    this.loadingIndicator.style.display = "block";
-                }
-            }
-
-            hideLoadingIndicator() {
-                if (this.loadingIndicator) {
-                    this.loadingIndicator.style.display = "none";
-                }
             }
 
             // Select or deselect an option
             selectOption(option) {
-                const itemId = parseInt(option.dataset.itemId);
+                const itemId = option.dataset.itemId;
                 const item = { id: itemId, name: option.textContent };
 
                 const index = this.selectedItems.findIndex(selectedItem => selectedItem.id === itemId);
@@ -411,41 +334,25 @@
                 this.updateUI();
             }
 
-            // Show error message to the user
-            showErrorMessage(message) {
-                const errorDiv = document.createElement('div');
-                errorDiv.textContent = message;
-                errorDiv.style.color = 'red';
-                errorDiv.style.marginTop = '10px';
-                this.container.appendChild(errorDiv);
-                setTimeout(() => errorDiv.remove(), 5000);
-            }
-
-            // Updated method to populate dropdown options
+            // Populate dropdown options with fetched data
             populateDropdownOptions(options) {
-                if (this.virtualScrolling && this.items.length + options.length > this.virtualScrollingThreshold) {
-                    this.implementVirtualScrolling();
-                } else {
-                    options.forEach((item, index) => {
-                        if (!this.items.some(i => i.id === item.id)) {
-                            this.items.push(item);
-                        }
+                options.forEach((item) => {
+                    if (!this.items.some(i => i.id === item.id)) {
+                        this.items.push(item);
+                    }
 
-                        const existingOption = this.dropdownOptions.querySelector(`[data-item-id="${item.id}"]`);
-                        if (existingOption) {
-                            existingOption.textContent = item.name;
-                        } else {
-                            const option = document.createElement("div");
-                            option.setAttribute("role", "option");
-                            option.tabIndex = 0;
-                            option.classList.add("htmlssp-dropdown-option");
-                            option.textContent = item.name;
-                            option.dataset.itemId = item.id;
-                            option.addEventListener("click", () => this.selectOption(option));
-                            this.dropdownOptions.appendChild(option);
-                        }
-                    });
-                }
+                    const existingOption = this.dropdownOptions.querySelector(`[data-item-id="${item.id}"]`);
+                    if (existingOption) {
+                        existingOption.textContent = item.name;
+                    } else {
+                        const option = document.createElement("div");
+                        option.classList.add("htmlssp-dropdown-option");
+                        option.textContent = item.name;
+                        option.dataset.itemId = item.id;
+                        option.addEventListener("click", () => this.selectOption(option));
+                        this.dropdownOptions.appendChild(option);
+                    }
+                });
 
                 this.updateUI();
             }
@@ -454,16 +361,17 @@
             updateUI() {
                 this.updateOptionSelection();
                 this.updateSelectedItemsButtonText();
-                this.logSelectedItemIds();
                 this.updatePreviewDialog();
+                this.logSelectedItemIds();
             }
 
             // Update the selection state of options
             updateOptionSelection() {
                 const options = this.dropdownOptions.querySelectorAll(".htmlssp-dropdown-option");
                 options.forEach(option => {
-                    const itemId = parseInt(option.dataset.itemId);
-                    option.classList.toggle("htmlssp-selected", this.selectedItems.some(item => item.id === itemId));
+                    const itemId = option.dataset.itemId;
+                    const isSelected = this.selectedItems.some(item => item.id.toString() === itemId);
+                    option.classList.toggle("htmlssp-selected", isSelected);
                 });
             }
 
@@ -499,11 +407,6 @@
 
             // Function to fetch data from the server (replace with your actual data fetching logic)
             async htmlsspFetchData(page, keyword, startIndex, limit) {
-                const cacheKey = `${page}-${keyword}-${startIndex}-${limit}-${this.sortField}-${this.sortOrder}`;
-                if (this.cache.has(cacheKey)) {
-                    return this.cache.get(cacheKey);
-                }
-
                 const fetchUrl = this.fetchDataParams.fetchUrl || 'fetch_items.php';
                 const method = this.fetchDataParams.method || 'GET';
                 const params = {
@@ -515,10 +418,6 @@
                     sortOrder: this.sortOrder,
                     ...(this.fetchDataParams.additionalParams || {})
                 };
-
-                if (this.loadingIndicator) {
-                    this.showLoadingIndicator();
-                }
 
                 try {
                     let response;
@@ -537,21 +436,13 @@
                         throw new Error('Unsupported HTTP method');
                     }
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-
                     const data = await response.json();
-                    this.cache.set(cacheKey, data);
+                    // Ensure all IDs are strings
+                    data.options = data.options.map(item => ({ ...item, id: item.id.toString() }));
                     return data;
                 } catch (error) {
                     console.error("Error fetching data:", error);
-                    this.showErrorMessage("An error occurred while fetching data. Please try again.");
                     return { options: [], totalPages: 0, currentPage: 0 };
-                } finally {
-                    if (this.loadingIndicator) {
-                        this.hideLoadingIndicator();
-                    }
                 }
             }
 
@@ -585,64 +476,56 @@
                 }
             }
 
-            // Implement virtual scrolling
-            implementVirtualScrolling() {
-                // Clear existing options
-                this.dropdownOptions.innerHTML = '';
-
-                // Create a container for virtual scrolling
-                const virtualScrollContainer = document.createElement('div');
-                virtualScrollContainer.style.height = '250px';
-                virtualScrollContainer.style.overflowY = 'scroll';
-                this.dropdownOptions.appendChild(virtualScrollContainer);
-
-                // Create a content div
-                const contentDiv = document.createElement('div');
-                virtualScrollContainer.appendChild(contentDiv);
-
-                // Function to render visible items
-                const renderVisibleItems = () => {
-                    const scrollTop = virtualScrollContainer.scrollTop;
-                    const containerHeight = virtualScrollContainer.clientHeight;
-                    const itemHeight = 30; // Assuming each item is 30px high
-
-                    const startIndex = Math.floor(scrollTop / itemHeight);
-                    const endIndex = Math.min(this.items.length, Math.ceil((scrollTop + containerHeight) / itemHeight));
-
-                    contentDiv.style.height = `${this.items.length * itemHeight}px`;
-                    contentDiv.innerHTML = '';
-
-                    for (let i = startIndex; i < endIndex; i++) {
-                        const item = this.items[i];
-                        const option = document.createElement("div");
-                        option.classList.add("htmlssp-dropdown-option");
-                        option.textContent = item.name;
-                        option.dataset.itemId = item.id;
-                        option.style.position = 'absolute';
-                        option.style.top = `${i * itemHeight}px`;
-                        option.addEventListener("click", () => this.selectOption(option));
-                        contentDiv.appendChild(option);
-                    }
+            async fetchSpecificItems(itemIds) {
+                const fetchUrl = this.fetchDataParams.fetchUrl || 'fetch_items.php';
+                const method = this.fetchDataParams.method || 'GET';
+                const params = {
+                    itemIds: itemIds.join(','),
+                    ...(this.fetchDataParams.additionalParams || {})
                 };
 
-                virtualScrollContainer.addEventListener('scroll', debounce(renderVisibleItems, 100));
-                renderVisibleItems();
+                try {
+                    let response;
+                    if (method.toUpperCase() === 'GET') {
+                        const queryParams = new URLSearchParams(params);
+                        response = await fetch(`${fetchUrl}?${queryParams}`);
+                    } else if (method.toUpperCase() === 'POST') {
+                        response = await fetch(fetchUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(params)
+                        });
+                    } else {
+                        throw new Error('Unsupported HTTP method');
+                    }
+
+                    const data = await response.json();
+                    console.log("Fetched specific items:", data.options);
+                    // Filter out items that are already in the this.items array
+                    const newItems = data.options.filter(newItem =>
+                        !this.items.some(existingItem => existingItem.id === newItem.id)
+                    );
+
+                    console.log("New items to be added:", newItems);
+                    return newItems;
+                } catch (error) {
+                    console.error("Error fetching specific items:", error);
+                    return [];
+                }
             }
 
-            // Updated method to update dropdown options based on keyword search
-            updateDropdownOptionsByKeyword() {
-                const debouncedUpdate = debounce(async () => {
-                    this.dropdownOptions.innerHTML = "";
-                    this.items = [];
-                    this.lastFetchStartIndex = 0;
-                    this.currentKeyword = this.searchInput.value.trim();
-                    const data = await this.htmlsspFetchData(1, this.currentKeyword, 0, this.itemsPerPage);
-                    this.populateDropdownOptions(data.options);
-                    this.createPagination(data.totalPages, data.currentPage);
-                    this.lastFetchStartIndex += this.itemsPerPage;
-                }, 300);
-
-                debouncedUpdate();
+            // Update dropdown options based on keyword search
+            async updateDropdownOptionsByKeyword() {
+                this.dropdownOptions.innerHTML = "";
+                this.items = [];
+                this.lastFetchStartIndex = 0;
+                this.currentKeyword = this.searchInput.value.trim();
+                const data = await this.htmlsspFetchData(1, this.currentKeyword, 0, this.itemsPerPage);
+                this.populateDropdownOptions(data.options);
+                this.createPagination(data.totalPages, data.currentPage);
+                this.lastFetchStartIndex += this.itemsPerPage;
             }
 
             // Show dropdown options
@@ -659,7 +542,7 @@
             checkAllOptions() {
                 const options = this.dropdownOptions.querySelectorAll(".htmlssp-dropdown-option");
                 options.forEach(option => {
-                    const itemId = parseInt(option.dataset.itemId);
+                    const itemId = option.dataset.itemId;
                     const item = { id: itemId, name: option.textContent };
                     if (!this.selectedItems.some(selectedItem => selectedItem.id === itemId)) {
                         this.selectedItems.push(item);
@@ -670,14 +553,11 @@
 
             // Uncheck all visible options
             uncheckAllOptions() {
-                const options = this.dropdownOptions.querySelectorAll(".htmlssp-dropdown-option");
-                options.forEach(option => {
-                    const itemId = parseInt(option.dataset.itemId);
-                    const index = this.selectedItems.findIndex(item => item.id === itemId);
-                    if (index !== -1) {
-                        this.selectedItems.splice(index, 1);
-                    }
-                });
+                const visibleOptions = this.dropdownOptions.querySelectorAll(".htmlssp-dropdown-option");
+                const visibleItemIds = new Set(Array.from(visibleOptions).map(option => option.dataset.itemId));
+
+                this.selectedItems = this.selectedItems.filter(item => !visibleItemIds.has(item.id.toString()));
+
                 this.updateUI();
             }
 
@@ -704,14 +584,11 @@
                 this.previewDialog.style.display = "none";
             }
 
-            // Updated method to update preview dialog content
+            // Update preview dialog content
             updatePreviewDialog() {
-                this.previewItemsList.innerHTML = '';
-                this.selectedItems.forEach(item => {
-                    const li = document.createElement('li');
-                    li.textContent = `${item.name} (ID: ${item.id})`;
-                    this.previewItemsList.appendChild(li);
-                });
+                this.previewItemsList.innerHTML = this.selectedItems
+                    .map(item => `<li>${item.name} (ID: ${item.id})</li>`)
+                    .join('');
             }
 
             // Log selected item IDs to console
@@ -726,6 +603,8 @@
 
             // Set selected items
             async setSelectedItems(itemIds) {
+                console.log("Setting selected items:", itemIds);
+
                 // Clear current selection
                 this.selectedItems = [];
 
@@ -734,17 +613,31 @@
                     await this.loadAllItems();
                 }
 
+                // Fetch items that are not already loaded
+                const missingItemIds = itemIds.filter(id => !this.items.some(item => item.id.toString() === id.toString()));
+                console.log("Missing item IDs:", missingItemIds);
+
+                if (missingItemIds.length > 0) {
+                    const fetchedItems = await this.fetchSpecificItems(missingItemIds);
+                    console.log("Fetched items:", fetchedItems);
+                    this.items.push(...fetchedItems);
+                }
+
+                console.log("All items after fetch:", this.items);
+
                 // Set new selection
                 itemIds.forEach(id => {
-                    const item = this.items.find(item => item.id === id);
+                    const item = this.items.find(item => item.id.toString() === id.toString());
                     if (item) {
                         this.selectedItems.push(item);
                     } else {
                         console.warn(`Item with id ${id} not found`);
                         // Add a placeholder item if not found
-                        this.selectedItems.push({ id: id, name: `Unknown Item (ID: ${id})` });
+                        this.selectedItems.push({ id: id.toString(), name: `Unknown Item (ID: ${id})` });
                     }
                 });
+
+                console.log("Selected items after setting:", this.selectedItems);
 
                 this.updateUI();
                 // Keep the dropdown hidden when setting items
@@ -779,21 +672,13 @@
             // Load all items (useful for setSelectedItems)
             async loadAllItems() {
                 let page = 1;
-                let allItems = [];
-                const batchSize = 1000; // Adjust this value based on your API's capabilities
-
-                while (true) {
-                    const data = await this.htmlsspFetchData(page, "", 0, batchSize);
-                    allItems = allItems.concat(data.options);
-
-                    if (data.options.length < batchSize) {
-                        break; // We've fetched all items
-                    }
+                let hasMore = true;
+                while (hasMore) {
+                    const data = await this.htmlsspFetchData(page, "", 0, 100);
+                    this.populateDropdownOptions(data.options);
+                    hasMore = data.options.length === 100;
                     page++;
                 }
-
-                this.items = allItems;
-                this.populateDropdownOptions(this.items);
             }
         }
 
@@ -852,12 +737,16 @@
             const dropdownD = dropdownManager.createDropdownFilter('dropdown-d', {}, htmlsspFetchDataBypass);
 
             // Wait for dropdowns to initialize before setting items
-            setTimeout(async () => {
+            setTimeout(async function checkAndSetItems() {
                 const instanceB = dropdownManager.getDropdownInstance('dropdown-b');
-                await instanceB.setSelectedItemsForDropdown([1, 3, 5]);
-                console.log("Selected items for dropdown B:", instanceB.getSelectedItemsForDropdown());
-                console.log("Selected item IDs for dropdown B:", instanceB.getSelectedItemIdsForDropdown());
-            }, 1000);
+                if (instanceB.isInitialized()) {
+                    await instanceB.setSelectedItemsForDropdown([1, 3, 5]);
+                    console.log("Selected items for dropdown B:", instanceB.getSelectedItemsForDropdown());
+                    console.log("Selected item IDs for dropdown B:", instanceB.getSelectedItemIdsForDropdown());
+                } else {
+                    setTimeout(checkAndSetItems, 500);
+                }
+            }, 0);
 
             // Example of changing sorting
             setTimeout(() => {
