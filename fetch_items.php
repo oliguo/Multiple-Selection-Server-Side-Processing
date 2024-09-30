@@ -35,6 +35,7 @@ $limit = getParam('limit', 20);
 $category = getParam('category', '');
 $sortField = getParam('sortField', 'id');
 $sortOrder = getParam('sortOrder', 'ASC');
+$itemIds = getParam('itemIds', '');
 
 // Validate and sanitize sort field and order
 $allowedSortFields = ['id', 'name', 'price', 'category']; // Add all allowed fields
@@ -51,6 +52,13 @@ if (!empty($keyword)) {
 
 if (!empty($category)) {
   $whereClauses[] = "category = '" . $conn->real_escape_string($category) . "'";
+}
+
+if (!empty($itemIds)) {
+  $itemIdsArray = explode(',', $itemIds);
+  $itemIdsArray = array_map('intval', $itemIdsArray); // Ensure all IDs are integers
+  $itemIdsString = implode(',', $itemIdsArray);
+  $whereClauses[] = "id IN ($itemIdsString)";
 }
 
 if (!empty($whereClauses)) {
