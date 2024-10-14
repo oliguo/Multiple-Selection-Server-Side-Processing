@@ -171,6 +171,26 @@
             margin-bottom: 0.3125em;
         }
 
+        .htmlssp-disabled {
+            pointer-events: none;
+        }
+
+        .htmlssp-disabled input,
+        .htmlssp-disabled button:not(.htmlssp-selected-items) {
+            cursor: not-allowed;
+        }
+
+        .htmlssp-disabled .htmlssp-selected-items,
+        .htmlssp-disabled .htmlssp-preview-dialog {
+            opacity: 1;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .htmlssp-disabled .htmlssp-preview-dialog * {
+            opacity: 1;
+        }
+
         /* Media query for smaller screens */
         @media screen and (max-width: 600px) {
             .htmlssp-dropdown-container {
@@ -211,6 +231,7 @@
                 this.currentKeyword = this.fetchDataParams.initialKeyword || "";
                 this.itemsPerPage = this.fetchDataParams.itemsPerPage || 20;
                 this.loadTranslations();
+                this.enabled = true;
             }
 
             async loadTranslations() {
@@ -257,30 +278,31 @@
 
             render() {
                 this.container.innerHTML = `
-            <div class="htmlssp-dropdown-container">
-                <div class="htmlssp-search-container">
-                    <input type="text" class="htmlssp-search-input" placeholder="${this.translate('search_placeholder')}">
-                    <div class="htmlssp-button-group">
-                        <button class="htmlssp-check-all">${this.translate('check_all')}</button>
-                        <button class="htmlssp-uncheck-all">${this.translate('uncheck_all')}</button>
-                        <button class="htmlssp-reset">${this.translate('reset')}</button>
-                        <button class="htmlssp-selected-items">${this.translate('selected_items')}</button>
-                    </div>
-                </div>
-                <div class="htmlssp-dropdown-options"></div>
-            </div>
-            <div class="htmlssp-pagination"></div>
-            <div class="htmlssp-preview-dialog">
-                <div class="htmlssp-preview-dialog-header">
-                    <h3>${this.translate('preview_dialog_title')}</h3>
-                    <span class="htmlssp-preview-dialog-close">&times;</span>
-                </div>
-                <div class="htmlssp-preview-items-container">
-                    <ul class="htmlssp-preview-items-list"></ul>
-                </div>
-            </div>
-        `;
+                                            <div class="htmlssp-dropdown-container">
+                                                <div class="htmlssp-search-container">
+                                                    <input type="text" class="htmlssp-search-input" placeholder="${this.translate('search_placeholder')}">
+                                                    <div class="htmlssp-button-group">
+                                                        <button class="htmlssp-check-all">${this.translate('check_all')}</button>
+                                                        <button class="htmlssp-uncheck-all">${this.translate('uncheck_all')}</button>
+                                                        <button class="htmlssp-reset">${this.translate('reset')}</button>
+                                                        <button class="htmlssp-selected-items htmlssp-always-enabled">${this.translate('selected_items')}</button>
+                                                    </div>
+                                                </div>
+                                                <div class="htmlssp-dropdown-options"></div>
+                                            </div>
+                                            <div class="htmlssp-pagination"></div>
+                                            <div class="htmlssp-preview-dialog htmlssp-always-enabled">
+                                                <div class="htmlssp-preview-dialog-header">
+                                                    <h3>${this.translate('preview_dialog_title')}</h3>
+                                                    <span class="htmlssp-preview-dialog-close">&times;</span>
+                                                </div>
+                                                <div class="htmlssp-preview-items-container">
+                                                    <ul class="htmlssp-preview-items-list"></ul>
+                                                </div>
+                                            </div>
+                                        `;
             }
+
 
             // Initialize element references
             initializeElements() {
@@ -336,6 +358,29 @@
 
             // Attach event listeners to various elements
             attachEventListeners() {
+                this.searchInput.addEventListener("input", () => {
+                    if (this.enabled) this.updateDropdownOptionsByKeyword();
+                });
+                this.dropdownOptions.addEventListener("scroll", () => {
+                    if (this.enabled) this.loadMoreOptions();
+                });
+                this.checkAllButton.addEventListener("click", () => {
+                    if (this.enabled) this.checkAllOptions();
+                });
+                this.uncheckAllButton.addEventListener("click", () => {
+                    if (this.enabled) this.uncheckAllOptions();
+                });
+                this.resetButton.addEventListener("click", () => {
+                    if (this.enabled) this.resetAll();
+                });
+
+                this.selectedItemsButton.addEventListener("click", () => this.showPreviewDialog());
+                this.previewDialogClose.addEventListener("click", () => this.closePreviewDialog());
+
+                this.searchInput.addEventListener("focus", () => {
+                    if (this.enabled) this.showDropdownOptions();
+                });
+
                 this.searchInput.addEventListener("input", () => this.updateDropdownOptionsByKeyword());
                 this.dropdownOptions.addEventListener("scroll", () => this.loadMoreOptions());
                 this.checkAllButton.addEventListener("click", () => this.checkAllOptions());
@@ -610,6 +655,7 @@
             showPreviewDialog() {
                 this.updatePreviewDialog();
                 this.previewDialog.style.display = "flex";
+                this.previewDialog.classList.remove('htmlssp-disabled');
             }
 
             // Close preview dialog
@@ -705,6 +751,28 @@
                 return this.getSelectedItemIds();
             }
 
+            disable() {
+                this.enabled = false;
+                this.container.classList.add('htmlssp-disabled');
+                this.searchInput.disabled = true;
+                this.checkAllButton.disabled = true;
+                this.uncheckAllButton.disabled = true;
+                this.resetButton.disabled = true;
+                this.hideDropdownOptions();
+
+                // Ensure the preview dialog is not affected
+                this.previewDialog.classList.remove('htmlssp-disabled');
+            }
+
+            enable() {
+                this.enabled = true;
+                this.container.classList.remove('htmlssp-disabled');
+                this.searchInput.disabled = false;
+                this.checkAllButton.disabled = false;
+                this.uncheckAllButton.disabled = false;
+                this.resetButton.disabled = false;
+            }
+
             // Load all items (useful for setSelectedItems)
             async loadAllItems() {
                 let page = 1;
@@ -747,6 +815,20 @@
                 if (instance) {
                     instance.language = language;
                     instance.loadTranslations();
+                }
+            }
+
+            enableDropdown(containerId) {
+                const instance = this.getDropdownInstance(containerId);
+                if (instance) {
+                    instance.enable();
+                }
+            }
+
+            disableDropdown(containerId) {
+                const instance = this.getDropdownInstance(containerId);
+                if (instance) {
+                    instance.disable();
                 }
             }
         }
@@ -802,6 +884,13 @@
             setTimeout(() => {
                 dropdownD.setSorting('name', 'ASC');
             }, 5000);
+
+            const dropdownE = await dropdownManager.createDropdownFilter('dropdown-e', {}, {
+                fetchUrl: 'fetch_items.php',
+                method: 'GET'
+            }, 'en-US');
+
+            dropdownManager.disableDropdown('dropdown-b');
 
         });
 
