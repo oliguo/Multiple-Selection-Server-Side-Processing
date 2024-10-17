@@ -59,8 +59,8 @@
         }, 'en-US');
 
         // Set and Get selected items for dropdown B
-        dropdownManager.setSelectedItems('dropdown-b', [21, 31, 51]);
-        console.log("Selected item IDs for dropdown B:", dropdownManager.getSelectedItemsIds('dropdown-b')); 
+        dropdownManager.setSelectedItems('dropdown-b', [1, 115182, 47921, 62617, 65420, 67229, 67917, 95022, 107314, 109040, 1300, 12, 13, 14, 18, 19]);
+        console.log("Selected item IDs for dropdown B:", dropdownManager.getSelectedItemsIds('dropdown-b'));
 
         //disable A dropdown
         dropdownManager.disableDropdown('dropdown-a');
@@ -72,7 +72,12 @@
         }, 5000);
 
 
+        const dropdownSingle = await dropdownManager.createDropdownFilter('dropdown-e', '#htmlssp-dropdowns-container-e', {}, {
+            fetchUrl: 'fetch_items.php',
+            method: 'GET'
+        }, 'en-US', './', { singleChoice: true });
 
+        // Or toggle single choice mode later
+        dropdownManager.setSingleChoice('dropdown-c', true);
     });
-
     
