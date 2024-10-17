@@ -215,12 +215,13 @@
     <div id="htmlssp-dropdowns-container-b"></div>
     <div id="htmlssp-dropdowns-container-c"></div>
     <div id="htmlssp-dropdowns-container-d"></div>
+    <div id="htmlssp-dropdowns-container-e"></div>
 
     <script type="text/javascript">
 
         // Dropdown Filter Class
         class HTMLSSPDropdownFilter {
-            constructor(containerId, cssOptions = {}, fetchDataParams = {}, language = 'en-US', localeFolder = './') {
+            constructor(containerId, cssOptions = {}, fetchDataParams = {}, language = 'en-US', localeFolder = './', options = {}) {
                 this.localeFolder = localeFolder;
                 this.containerId = containerId;
                 this.container = document.getElementById(containerId);
@@ -236,6 +237,7 @@
                 this.itemsPerPage = this.fetchDataParams.itemsPerPage || 20;
                 this.loadTranslations();
                 this.enabled = true;
+                this.singleChoice = options.singleChoice || false;
             }
 
             async loadTranslations() {
@@ -282,29 +284,31 @@
 
             render() {
                 this.container.innerHTML = `
-                                            <div class="htmlssp-dropdown-container">
-                                                <div class="htmlssp-search-container">
-                                                    <input type="text" class="htmlssp-search-input" placeholder="${this.translate('search_placeholder')}">
-                                                    <div class="htmlssp-button-group">
-                                                        <button class="htmlssp-check-all">${this.translate('check_all')}</button>
-                                                        <button class="htmlssp-uncheck-all">${this.translate('uncheck_all')}</button>
-                                                        <button class="htmlssp-reset">${this.translate('reset')}</button>
-                                                        <button class="htmlssp-selected-items htmlssp-always-enabled">${this.translate('selected_items')}</button>
-                                                    </div>
-                                                </div>
-                                                <div class="htmlssp-dropdown-options"></div>
-                                            </div>
-                                            <div class="htmlssp-pagination"></div>
-                                            <div class="htmlssp-preview-dialog htmlssp-always-enabled">
-                                                <div class="htmlssp-preview-dialog-header">
-                                                    <h3>${this.translate('preview_dialog_title')}</h3>
-                                                    <span class="htmlssp-preview-dialog-close">&times;</span>
-                                                </div>
-                                                <div class="htmlssp-preview-items-container">
-                                                    <ul class="htmlssp-preview-items-list"></ul>
-                                                </div>
-                                            </div>
-                                        `;
+                        <div class="htmlssp-dropdown-container">
+                            <div class="htmlssp-search-container">
+                                <input type="text" class="htmlssp-search-input" placeholder="${this.translate('search_placeholder')}">
+                                <div class="htmlssp-button-group">
+                                    ${!this.singleChoice ? `
+                                        <button class="htmlssp-check-all">${this.translate('check_all')}</button>
+                                        <button class="htmlssp-uncheck-all">${this.translate('uncheck_all')}</button>
+                                    ` : ''}
+                                    <button class="htmlssp-reset">${this.translate('reset')}</button>
+                                    <button class="htmlssp-selected-items htmlssp-always-enabled">${this.translate('selected_items')}</button>
+                                </div>
+                            </div>
+                            <div class="htmlssp-dropdown-options"></div>
+                        </div>
+                        <div class="htmlssp-pagination"></div>
+                        <div class="htmlssp-preview-dialog htmlssp-always-enabled">
+                            <div class="htmlssp-preview-dialog-header">
+                                <h3>${this.translate('preview_dialog_title')}</h3>
+                                <span class="htmlssp-preview-dialog-close">&times;</span>
+                            </div>
+                            <div class="htmlssp-preview-items-container">
+                                <ul class="htmlssp-preview-items-list"></ul>
+                            </div>
+                        </div>
+                    `;
             }
 
 
@@ -319,8 +323,11 @@
 
                 this.selectedItemsButton = this.container.querySelector(".htmlssp-selected-items");
                 this.paginationContainer = this.container.querySelector(".htmlssp-pagination");
+
+                // Only initialize these buttons if they exist
                 this.checkAllButton = this.container.querySelector(".htmlssp-check-all");
                 this.uncheckAllButton = this.container.querySelector(".htmlssp-uncheck-all");
+
                 this.resetButton = this.container.querySelector(".htmlssp-reset");
                 this.previewDialog = this.container.querySelector(".htmlssp-preview-dialog");
                 this.previewItemsList = this.container.querySelector(".htmlssp-preview-items-list");
@@ -368,12 +375,19 @@
                 this.dropdownOptions.addEventListener("scroll", () => {
                     if (this.enabled) this.loadMoreOptions();
                 });
-                this.checkAllButton.addEventListener("click", () => {
-                    if (this.enabled) this.checkAllOptions();
-                });
-                this.uncheckAllButton.addEventListener("click", () => {
-                    if (this.enabled) this.uncheckAllOptions();
-                });
+
+                // Only attach listeners to these buttons if they exist
+                if (this.checkAllButton) {
+                    this.checkAllButton.addEventListener("click", () => {
+                        if (this.enabled) this.checkAllOptions();
+                    });
+                }
+                if (this.uncheckAllButton) {
+                    this.uncheckAllButton.addEventListener("click", () => {
+                        if (this.enabled) this.uncheckAllOptions();
+                    });
+                }
+
                 this.resetButton.addEventListener("click", () => {
                     if (this.enabled) this.resetAll();
                 });
@@ -384,15 +398,6 @@
                 this.searchInput.addEventListener("focus", () => {
                     if (this.enabled) this.showDropdownOptions();
                 });
-
-                this.searchInput.addEventListener("input", () => this.updateDropdownOptionsByKeyword());
-                this.dropdownOptions.addEventListener("scroll", () => this.loadMoreOptions());
-                this.checkAllButton.addEventListener("click", () => this.checkAllOptions());
-                this.uncheckAllButton.addEventListener("click", () => this.uncheckAllOptions());
-                this.resetButton.addEventListener("click", () => this.resetAll());
-                this.selectedItemsButton.addEventListener("click", () => this.showPreviewDialog());
-                this.previewDialogClose.addEventListener("click", () => this.closePreviewDialog());
-                this.searchInput.addEventListener("focus", () => this.showDropdownOptions());
 
                 document.addEventListener("click", (event) => {
                     if (!this.searchInput.contains(event.target) && !this.dropdownOptions.contains(event.target)) {
@@ -406,11 +411,15 @@
                 const itemId = option.dataset.itemId;
                 const item = { id: itemId, name: option.textContent };
 
-                const index = this.selectedItems.findIndex(selectedItem => selectedItem.id === itemId);
-                if (index !== -1) {
-                    this.selectedItems.splice(index, 1);
+                if (this.singleChoice) {
+                    this.selectedItems = [item];
                 } else {
-                    this.selectedItems.push(item);
+                    const index = this.selectedItems.findIndex(selectedItem => selectedItem.id === itemId);
+                    if (index !== -1) {
+                        this.selectedItems.splice(index, 1);
+                    } else {
+                        this.selectedItems.push(item);
+                    }
                 }
 
                 this.updateUI();
@@ -777,6 +786,21 @@
                 this.resetButton.disabled = false;
             }
 
+            setSingleChoice(singleChoice) {
+                this.singleChoice = singleChoice;
+                if (singleChoice) {
+                    if (this.checkAllButton) this.checkAllButton.style.display = 'none';
+                    if (this.uncheckAllButton) this.uncheckAllButton.style.display = 'none';
+                    if (this.selectedItems.length > 1) {
+                        this.selectedItems = [this.selectedItems[0]];
+                    }
+                } else {
+                    if (this.checkAllButton) this.checkAllButton.style.display = '';
+                    if (this.uncheckAllButton) this.uncheckAllButton.style.display = '';
+                }
+                this.updateUI();
+            }
+
             // Load all items (useful for setSelectedItems)
             async loadAllItems() {
                 let page = 1;
@@ -795,12 +819,12 @@
                 this.dropdownInstances = {};
             }
 
-            async createDropdownFilter(containerId, containerSelector, cssOptions = {}, fetchDataParams = {}, language = 'en-US', localeFolder = './') {
+            async createDropdownFilter(containerId, containerSelector, cssOptions = {}, fetchDataParams = {}, language = 'en-US', localeFolder = './', options = {}) {
                 const container = document.createElement('div');
                 container.id = containerId;
                 document.querySelector(containerSelector).appendChild(container);
 
-                const instance = new HTMLSSPDropdownFilter(containerId, cssOptions, fetchDataParams, language, localeFolder);
+                const instance = new HTMLSSPDropdownFilter(containerId, cssOptions, fetchDataParams, language, localeFolder, options);
                 this.dropdownInstances[containerId] = instance;
 
                 // Wait for the dropdown to initialize
@@ -818,6 +842,13 @@
                 if (instance) {
                     instance.language = language;
                     instance.loadTranslations();
+                }
+            }
+
+            setSingleChoice(containerId, singleChoice) {
+                const instance = this.getDropdownInstance(containerId);
+                if (instance) {
+                    instance.setSingleChoice(singleChoice);
                 }
             }
 
@@ -909,8 +940,8 @@
             }, 'en-US');
 
             // Set and Get selected items for dropdown B
-            dropdownManager.setSelectedItems('dropdown-b', [21, 31, 51]);
-            console.log("Selected item IDs for dropdown B:", dropdownManager.getSelectedItemsIds('dropdown-b')); 
+            dropdownManager.setSelectedItems('dropdown-b', [1, 115182, 47921, 62617, 65420, 67229, 67917, 95022, 107314, 109040, 1300, 12, 13, 14, 18, 19]);
+            console.log("Selected item IDs for dropdown B:", dropdownManager.getSelectedItemsIds('dropdown-b'));
 
             //disable A dropdown
             dropdownManager.disableDropdown('dropdown-a');
@@ -920,6 +951,15 @@
             setTimeout(() => {
                 dropdownD1.setSorting('name', 'ASC');
             }, 5000);
+
+
+            const dropdownSingle = await dropdownManager.createDropdownFilter('dropdown-e', '#htmlssp-dropdowns-container-e', {}, {
+                fetchUrl: 'fetch_items.php',
+                method: 'GET'
+            }, 'en-US', './', { singleChoice: true });
+
+            // Or toggle single choice mode later
+            dropdownManager.setSingleChoice('dropdown-c', true);
 
 
 
