@@ -928,6 +928,13 @@
                 return []; // Return an empty array if the instance doesn't exist
             }
 
+            resetDropdown(containerId) {
+                const instance = this.getDropdownInstance(containerId);
+                if (instance) {
+                    instance.resetAll();
+                }
+            }
+
         }
 
         // Global instance of the dropdown manager
@@ -1019,6 +1026,43 @@
             // Or toggle single choice mode later
             dropdownManager.setSingleChoice('dropdown-c', true);
 
+            const completeDropdown = await dropdownManager.createDropdownFilter({
+                // Required options
+                containerId: 'dropdown-complete',
+                containerSelector: '#htmlssp-dropdowns-container-e',
+
+                // Styling options
+                cssOptions: {
+                    container: 'width: 550px; font-family: "Roboto", sans-serif;',
+                    searchInput: 'background-color: #d0d0d0; color: #555;',
+                    button: 'background-color: #FF5722; color: white;',
+                    dropdownOptions: 'max-height: 300px; border: 2px solid #FF5722;',
+                },
+
+                // Data fetching options
+                fetchDataParams: {
+                    fetchUrl: 'fetch_items.php',
+                    method: 'POST',
+                    initialPage: 1,
+                    initialKeyword: '',
+                    initialStartIndex: 0,
+                    itemsPerPage: 50,
+                    sortField: 'name',
+                    sortOrder: 'ASC',
+                    additionalParams: {
+                        // category: 'electronics',
+                        // minPrice: 100,
+                        // maxPrice: 1000
+                    }
+                },
+
+                // Localization options
+                language: 'zh-HK',
+                localeFolder: './',
+
+                // Behavior options
+                singleChoice: false,
+            });
 
 
         });
