@@ -27,6 +27,7 @@ function getParam($name, $default = '')
     return isset($_GET[$name]) ? $_GET[$name] : $default;
   }
 }
+
 // Get parameters
 $keyword = getParam('keyword', '');
 $page = getParam('page', 1);
@@ -38,7 +39,7 @@ $sortOrder = getParam('sortOrder', 'ASC');
 $itemIds = getParam('itemIds', '');
 
 // Validate and sanitize sort field and order
-$allowedSortFields = ['id', 'name', 'price', 'category']; // Add all allowed fields
+$allowedSortFields = ['id', 'name', 'price', 'category'];
 $sortField = in_array($sortField, $allowedSortFields) ? $sortField : 'id';
 $sortOrder = (strtoupper($sortOrder) === 'DESC') ? 'DESC' : 'ASC';
 
@@ -56,9 +57,13 @@ if (!empty($category)) {
 
 if (!empty($itemIds)) {
   $itemIdsArray = explode(',', $itemIds);
-  $itemIdsArray = array_map('intval', $itemIdsArray); // Ensure all IDs are integers
+  $itemIdsArray = array_map('intval', $itemIdsArray);
   $itemIdsString = implode(',', $itemIdsArray);
   $whereClauses[] = "id IN ($itemIdsString)";
+  
+  // If itemIds are provided, ignore pagination and fetch all requested items
+  $startIndex = 0;
+  $limit = count($itemIdsArray);
 }
 
 if (!empty($whereClauses)) {
@@ -66,19 +71,26 @@ if (!empty($whereClauses)) {
 }
 
 $sql .= " ORDER BY " . $conn->real_escape_string($sortField) . " " . $sortOrder;
-$sql .= " LIMIT $startIndex, $limit";
+
+if (empty($itemIds)) {
+  $sql .= " LIMIT $startIndex, $limit";
+}
 
 // Execute the query
 $result = $conn->query($sql);
 
-// Calculate total pages
-$sqlTotal = "SELECT COUNT(*) AS total FROM items";
-if (!empty($whereClauses)) {
-  $sqlTotal .= " WHERE " . implode(" AND ", $whereClauses);
+// Calculate total pages (only if itemIds are not provided)
+if (empty($itemIds)) {
+  $sqlTotal = "SELECT COUNT(*) AS total FROM items";
+  if (!empty($whereClauses)) {
+    $sqlTotal .= " WHERE " . implode(" AND ", $whereClauses);
+  }
+  $resultTotal = $conn->query($sqlTotal);
+  $totalRows = $resultTotal->fetch_assoc()['total'];
+  $totalPages = ceil($totalRows / $limit);
+} else {
+  $totalPages = 1;
 }
-$resultTotal = $conn->query($sqlTotal);
-$totalRows = $resultTotal->fetch_assoc()['total'];
-$totalPages = ceil($totalRows / $limit);
 
 // Fetch data and store in an array
 $options = [];
