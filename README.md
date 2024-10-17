@@ -6,24 +6,27 @@
 
 # Guide
 ## Html Init
-     <div id="htmlssp-dropdowns-container"></div>
+    <div id="htmlssp-dropdowns-container-a"></div>
+    <div id="htmlssp-dropdowns-container-b"></div>
+    <div id="htmlssp-dropdowns-container-c"></div>
+    <div id="htmlssp-dropdowns-container-d"></div>
 ## JS Examples
-     // Global instance of the dropdown manager
+    // Global instance of the dropdown manager
     const dropdownManager = new HTMLSSPDropdownFilterManager();
 
     document.addEventListener('DOMContentLoaded', async () => {
         // Create initial dropdown filters with different languages
-        const dropdownA = await dropdownManager.createDropdownFilter('dropdown-a', {}, {
+        const dropdownA = await dropdownManager.createDropdownFilter('dropdown-a','#htmlssp-dropdowns-container-a', {}, {
             fetchUrl: 'fetch_items.php',
             method: 'GET'
-        }, 'en-US');
+        }, 'en-US','./custom-locale/');
 
-        const dropdownB = await dropdownManager.createDropdownFilter('dropdown-b', {}, {
+        const dropdownB = await dropdownManager.createDropdownFilter('dropdown-b','#htmlssp-dropdowns-container-b', {}, {
             fetchUrl: 'fetch_items.php',
             method: 'GET'
         }, 'zh-HK');
 
-        const dropdownC = await dropdownManager.createDropdownFilter('dropdown-c', {
+        const dropdownC = await dropdownManager.createDropdownFilter('dropdown-c','#htmlssp-dropdowns-container-c', {
             container: 'width: 550px; font-family: "Roboto", sans-serif;',
             searchInput: 'background-color: #d0d0d0; color: #555;',
             button: 'background-color: #FF5722; color: white;',
@@ -48,7 +51,12 @@
             }
         };
 
-        const dropdownD = await dropdownManager.createDropdownFilter('dropdown-d', {}, htmlsspFetchDataBypass);
+        const dropdownD1 = await dropdownManager.createDropdownFilter('dropdown-d1','#htmlssp-dropdowns-container-d', {}, htmlsspFetchDataBypass);
+        
+        const dropdownD2 = await dropdownManager.createDropdownFilter('dropdown-d2','#htmlssp-dropdowns-container-d', {}, {
+            fetchUrl: 'fetch_items.php',
+            method: 'GET'
+        }, 'en-US');
 
         // Set selected items for dropdown B
         await dropdownB.setSelectedItemsForDropdown([21, 31, 51]);
@@ -57,18 +65,11 @@
 
         // Example of changing sorting
         setTimeout(() => {
-            dropdownD.setSorting('name', 'ASC');
+            dropdownD1.setSorting('name', 'ASC');
         }, 5000);
-
-        const dropdownE = await dropdownManager.createDropdownFilter('dropdown-e', {}, {
-            fetchUrl: 'fetch_items.php',
-            method: 'GET'
-        }, 'en-US');
+        
         //disable B dropdown
         dropdownManager.disableDropdown('dropdown-b');
 
     });
-    
-
-    
     
