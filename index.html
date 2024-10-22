@@ -289,11 +289,11 @@
                                 <input type="text" class="htmlssp-search-input" placeholder="${this.translate('search_placeholder')}">
                                 <div class="htmlssp-button-group">
                                     ${!this.singleChoice ? `
-                                        <button class="htmlssp-check-all">${this.translate('check_all')}</button>
-                                        <button class="htmlssp-uncheck-all">${this.translate('uncheck_all')}</button>
+                                        <button type="button" class="htmlssp-check-all">${this.translate('check_all')}</button>
+                                        <button type="button" class="htmlssp-uncheck-all">${this.translate('uncheck_all')}</button>
                                     ` : ''}
-                                    <button class="htmlssp-reset">${this.translate('reset')}</button>
-                                    <button class="htmlssp-selected-items htmlssp-always-enabled">${this.translate('selected_items')}</button>
+                                    <button type="button" class="htmlssp-reset">${this.translate('reset')}</button>
+                                    <button type="button" class="htmlssp-selected-items htmlssp-always-enabled">${this.translate('selected_items')}</button>
                                 </div>
                             </div>
                             <div class="htmlssp-dropdown-options"></div>
